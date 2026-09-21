@@ -43,3 +43,4 @@ Ferramenta utilizada: Claude (Anthropic), por meio do Claude Code.
   arquivos próprios, a padronização do tratamento de erro e a simplificação de trechos
   discutidos ao longo do desenvolvimento.
 - Grande parte dos comentários do código e a documentação de apoio do projeto.
+- Geração do .jar para rodar o projeto.
