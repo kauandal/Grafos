@@ -1,0 +1,16 @@
+### Build Java ###
+*.class
+out/
+build/
+target/
+
+### IntelliJ ###
+.idea/workspace.xml
+.idea/shelf/
+.idea/usage.statistics.xml
+.idea/httpRequests/
+
+### Sistema operacional ###
+.DS_Store
+Thumbs.db
+desktop.ini
