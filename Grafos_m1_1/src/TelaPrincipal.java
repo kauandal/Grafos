@@ -83,10 +83,6 @@ public class TelaPrincipal extends JFrame {
         op.add(item("Peso da aresta/arco", e -> peso()));
         op.add(item("Extremidades da aresta/arco", e -> extremidades()));
 
-        JMenu matrizes = new JMenu("Matrizes");
-        matrizes.add(item("Matriz de adjacência", e -> imprimir(grafo.formatarMatrizAdjacencia())));
-        matrizes.add(item("Matriz de incidência", e -> imprimir(grafo.formatarMatrizIncidencia())));
-
         JMenu alg = new JMenu("Algoritmos");
         alg.add(item("Prim: árvore geradora mínima", e -> prim()));
         alg.add(item("Busca em profundidade guiada", e -> busca()));
@@ -98,7 +94,6 @@ public class TelaPrincipal extends JFrame {
 
         barra.add(grafoMenu);
         barra.add(op);
-        barra.add(matrizes);
         barra.add(alg);
         barra.add(exibir);
         return barra;
@@ -268,19 +263,19 @@ public class TelaPrincipal extends JFrame {
         try {
             Grafo.ResultadoAGM agm = grafo.prim(inicial);
 
-            StringBuilder sb = new StringBuilder("===== PRIM: ÁRVORE GERADORA MÍNIMA =====\n");
-            sb.append("Vértice inicial: ").append(agm.getInicial().getId()).append('\n');
+            String texto = "===== PRIM: ÁRVORE GERADORA MÍNIMA =====\n";
+            texto += "Vértice inicial: " + agm.getInicial().getId() + "\n";
             for (Aresta a : agm.getArestas()) {
-                sb.append("  ").append(a.getId()).append(": ").append(a.getOrigem().getId())
-                        .append(" -- ").append(a.getDestino().getId())
-                        .append("  peso ").append(a.getPesoFormatado()).append('\n');
+                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+                        + " -- " + a.getDestino().getId()
+                        + "  peso " + a.getPesoFormatado() + "\n";
             }
-            sb.append("Arestas: ").append(agm.getArestas().size())
-                    .append("   CUSTO TOTAL: ").append(Aresta.formatarPeso(agm.getCusto()));
+            texto += "Arestas: " + agm.getArestas().size()
+                    + "   CUSTO TOTAL: " + Aresta.formatarPeso(agm.getCusto());
             if (agm.isFloresta()) {
-                sb.append("\nGrafo desconexo: floresta com ").append(agm.getComponentes()).append(" árvores.");
+                texto += "\nGrafo desconexo: floresta com " + agm.getComponentes() + " árvores.";
             }
-            imprimir(sb.toString());
+            imprimir(texto);
 
             painel.realcar(agm.getArestas(), idsDe(agm.getArestas()), null);
         } catch (RuntimeException ex) {
@@ -300,24 +295,24 @@ public class TelaPrincipal extends JFrame {
         try {
             Grafo.ResultadoBusca b = grafo.buscaEmProfundidade(origem, destino);
 
-            StringBuilder sb = new StringBuilder("===== BUSCA EM PROFUNDIDADE GUIADA =====\n");
-            sb.append("Saída: ").append(b.getOrigem().getId())
-                    .append("   Chegada: ").append(b.getDestino().getId()).append('\n');
-            sb.append("Ordem de visita: ").append(b.getOrdemVisita()).append('\n');
-            sb.append("Arestas da árvore:\n");
+            String texto = "===== BUSCA EM PROFUNDIDADE GUIADA =====\n";
+            texto += "Saída: " + b.getOrigem().getId()
+                    + "   Chegada: " + b.getDestino().getId() + "\n";
+            texto += "Ordem de visita: " + b.getOrdemVisita() + "\n";
+            texto += "Arestas da árvore:\n";
             for (Aresta a : b.getArestasArvore()) {
-                sb.append("  ").append(a.getId()).append(": ").append(a.getOrigem().getId())
-                        .append(grafo.isDirigido() ? " -> " : " -- ").append(a.getDestino().getId())
-                        .append("  peso ").append(a.getPesoFormatado()).append('\n');
+                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+                        + (grafo.isDirigido() ? " -> " : " -- ") + a.getDestino().getId()
+                        + "  peso " + a.getPesoFormatado() + "\n";
             }
             if (b.isEncontrou()) {
-                sb.append("Caminho: ").append(b.getCaminhoVertices())
-                        .append("   custo ").append(Aresta.formatarPeso(b.getCustoCaminho()));
+                texto += "Caminho: " + b.getCaminhoVertices()
+                        + "   custo " + Aresta.formatarPeso(b.getCustoCaminho());
             } else {
-                sb.append(b.getDestino().getId()).append(" não é alcançável a partir de ")
-                        .append(b.getOrigem().getId()).append('.');
+                texto += b.getDestino().getId() + " não é alcançável a partir de "
+                        + b.getOrigem().getId() + ".";
             }
-            imprimir(sb.toString());
+            imprimir(texto);
 
             Map<String, Color> cores = new HashMap<>();
             cores.put(b.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
@@ -331,18 +326,18 @@ public class TelaPrincipal extends JFrame {
     private void roy() {
         List<List<Vertice>> componentes = grafo.royComponentes();
 
-        StringBuilder sb = new StringBuilder("===== ROY: COMPONENTES ");
-        sb.append(grafo.isDirigido() ? "FORTEMENTE CONEXAS" : "CONEXAS").append(" =====\n");
+        String texto = "===== ROY: COMPONENTES "
+                + (grafo.isDirigido() ? "FORTEMENTE CONEXAS" : "CONEXAS") + " =====\n";
 
         Map<String, Color> cores = new HashMap<>();
         for (int i = 0; i < componentes.size(); i++) {
-            sb.append("C").append(i + 1).append(" = ").append(componentes.get(i)).append('\n');
+            texto += "C" + (i + 1) + " = " + componentes.get(i) + "\n";
             for (Vertice v : componentes.get(i)) {
                 cores.put(v.getId(), PainelGrafo.PALETA[i % PainelGrafo.PALETA.length]);
             }
         }
-        sb.append("Total de componentes: ").append(componentes.size());
-        imprimir(sb.toString());
+        texto += "Total de componentes: " + componentes.size();
+        imprimir(texto);
 
         painel.realcar(null, null, cores);
     }

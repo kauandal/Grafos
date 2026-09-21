@@ -1,10 +1,9 @@
 import java.util.Locale;
 
 /**
- * Aresta (par não ordenado) ou arco (par ordenado) do grafo.
- *
- * A interpretação de origem/destino como ordenada ou não ordenada
- * depende do grafo ao qual a aresta pertence.
+ Aresta (não ordenado) ou arco (ordenado) do grafo.
+ A interpretação de origem/destino como ordenada ou não ordenada
+ depende do grafo ao qual a aresta pertence.
  */
 public class Aresta {
 

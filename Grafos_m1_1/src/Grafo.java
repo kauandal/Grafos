@@ -1,24 +1,19 @@
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Deque;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
 
 /**
- * Grafo dirigido ou não dirigido representado por LISTA DE ADJACÊNCIA.
- *
- * Atributos da representação:
- * - dirigido: define se os pares (v, w) são ordenados (arco) ou não (aresta);
- * - vertices: os vértices do grafo, cada um com sua própria lista de adjacência;
- * - arestas: lista geral das arestas/arcos, usada para busca por identificador
- *   e para montar as matrizes de adjacência e de incidência.
+ Grafo dirigido ou não dirigido representado por LISTA DE ADJACÊNCIA.
+ Atributos da representação:
+ -dirigido: define se os pares (v, w) são ordenados (arco) ou não (aresta);
+ -vertices: os vértices do grafo, cada um com sua própria lista de adjacência;
+ -arestas: lista geral das arestas/arcos, usada para busca por identificador
+ e pelo algoritmo de Roy.
  */
 public class Grafo {
 
@@ -68,30 +63,21 @@ public class Grafo {
         return null;
     }
 
-    /** Posição de cada vértice na ordem atual da lista, usada pelas matrizes. */
-    private Map<Vertice, Integer> indices() {
-        Map<Vertice, Integer> indices = new HashMap<>();
-        for (int i = 0; i < vertices.size(); i++) {
-            indices.put(vertices.get(i), i);
-        }
-        return indices;
-    }
-
     /**
-     * Monta, a partir das listas de adjacência, o mapa de arestas incidentes
-     * de cada vértice.
-     *
-     * respeitarDirecao = true  -> apenas arcos que saem do vértice;
-     * respeitarDirecao = false -> toda aresta que incide no vértice.
+     Arestas incidentes sobre cada vértice, ignorando o sentido.
+     Em grafo não dirigido isso já é a própria lista de adjacência. Em grafo
+     dirigido a lista de adjacência guarda apenas os arcos que saem do vértice,
+     por isso o mapa precisa ser montado à parte. Usado só pelo Prim, que
+     trabalha sobre o grafo subjacente.
      */
-    private Map<Vertice, List<Aresta>> mapaIncidencia(boolean respeitarDirecao) {
-        Map<Vertice, List<Aresta>> mapa = new LinkedHashMap<>();
+    private Map<Vertice, List<Aresta>> incidenciaSemSentido() {
+        Map<Vertice, List<Aresta>> mapa = new HashMap<>();
         for (Vertice v : vertices) {
             mapa.put(v, new ArrayList<>());
         }
         for (Aresta a : arestas) {
             mapa.get(a.getOrigem()).add(a);
-            if (!respeitarDirecao && !a.isLaco()) {
+            if (!a.isLaco()) {
                 mapa.get(a.getDestino()).add(a);
             }
         }
@@ -222,150 +208,17 @@ public class Grafo {
             throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
         }
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("Aresta/arco: ").append(aresta.getId()).append('\n');
+        String texto = "Aresta/arco: " + aresta.getId() + "\n";
 
         if (dirigido) {
-            sb.append("Extremidade inicial (cauda): ").append(aresta.getOrigem().getId()).append('\n');
-            sb.append("Extremidade final (cabeça): ").append(aresta.getDestino().getId()).append('\n');
+            texto += "Extremidade inicial (cauda): " + aresta.getOrigem().getId() + "\n";
+            texto += "Extremidade final (cabeça): " + aresta.getDestino().getId() + "\n";
         } else {
-            sb.append("Extremidade 1: ").append(aresta.getOrigem().getId()).append('\n');
-            sb.append("Extremidade 2: ").append(aresta.getDestino().getId()).append('\n');
+            texto += "Extremidade 1: " + aresta.getOrigem().getId() + "\n";
+            texto += "Extremidade 2: " + aresta.getDestino().getId() + "\n";
         }
 
-        sb.append("Peso: ").append(aresta.getPesoFormatado());
-        return sb.toString();
-    }
-
-    // ============================================================
-    // MATRIZ DE ADJACÊNCIA
-    // ============================================================
-
-    /**
-     * Matriz de adjacência com os pesos.
-     *
-     * Quando existem arestas paralelas entre o mesmo par de vértices,
-     * prevalece o menor peso, para não depender da ordem de inserção.
-     */
-    public double[][] matrizAdjacencia() {
-        int n = vertices.size();
-        double[][] matriz = new double[n][n];
-        boolean[][] existe = new boolean[n][n];
-        Map<Vertice, Integer> indices = indices();
-
-        for (Aresta a : arestas) {
-            int i = indices.get(a.getOrigem());
-            int j = indices.get(a.getDestino());
-
-            if (!existe[i][j] || a.getPeso() < matriz[i][j]) {
-                matriz[i][j] = a.getPeso();
-                existe[i][j] = true;
-            }
-
-            if (!dirigido && (!existe[j][i] || a.getPeso() < matriz[j][i])) {
-                matriz[j][i] = a.getPeso();
-                existe[j][i] = true;
-            }
-        }
-        return matriz;
-    }
-
-    public String formatarMatrizAdjacencia() {
-        if (vertices.isEmpty()) {
-            return "O grafo não possui vértices.";
-        }
-
-        double[][] matriz = matrizAdjacencia();
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("========== MATRIZ DE ADJACÊNCIA ==========\n");
-        sb.append(String.format("%8s", ""));
-        for (Vertice v : vertices) {
-            sb.append(String.format("%10s", v.getId()));
-        }
-        sb.append('\n');
-
-        for (int i = 0; i < matriz.length; i++) {
-            sb.append(String.format("%8s", vertices.get(i).getId()));
-            for (int j = 0; j < matriz[i].length; j++) {
-                sb.append(String.format("%10s", Aresta.formatarPeso(matriz[i][j])));
-            }
-            sb.append('\n');
-        }
-
-        sb.append("Observação: 0 indica ausência de aresta/arco entre o par.");
-        return sb.toString();
-    }
-
-    // ============================================================
-    // MATRIZ DE INCIDÊNCIA
-    // ============================================================
-
-    /**
-     * Matriz de incidência vértice x aresta.
-     *
-     * Não dirigido: 1 nas extremidades e 2 no laço.
-     * Dirigido: -1 na cauda, 1 na cabeça e 0 no laço.
-     */
-    public int[][] matrizIncidencia() {
-        int n = vertices.size();
-        int m = arestas.size();
-        int[][] matriz = new int[n][m];
-        Map<Vertice, Integer> indices = indices();
-
-        for (int j = 0; j < m; j++) {
-            Aresta a = arestas.get(j);
-            int origem = indices.get(a.getOrigem());
-            int destino = indices.get(a.getDestino());
-
-            if (a.isLaco()) {
-                matriz[origem][j] = dirigido ? 0 : 2;
-                continue;
-            }
-
-            if (dirigido) {
-                matriz[origem][j] = -1;
-                matriz[destino][j] = 1;
-            } else {
-                matriz[origem][j] = 1;
-                matriz[destino][j] = 1;
-            }
-        }
-        return matriz;
-    }
-
-    public String formatarMatrizIncidencia() {
-        if (vertices.isEmpty()) {
-            return "O grafo não possui vértices.";
-        }
-        if (arestas.isEmpty()) {
-            return "O grafo não possui arestas/arcos.";
-        }
-
-        int[][] matriz = matrizIncidencia();
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("========== MATRIZ DE INCIDÊNCIA ==========\n");
-        sb.append(String.format("%8s", ""));
-        for (Aresta a : arestas) {
-            sb.append(String.format("%10s", a.getId()));
-        }
-        sb.append('\n');
-
-        for (int i = 0; i < matriz.length; i++) {
-            sb.append(String.format("%8s", vertices.get(i).getId()));
-            for (int j = 0; j < matriz[i].length; j++) {
-                sb.append(String.format("%10d", matriz[i][j]));
-            }
-            sb.append('\n');
-        }
-
-        if (dirigido) {
-            sb.append("Convenção: -1 cauda, 1 cabeça, 0 laço ou não incidente.");
-        } else {
-            sb.append("Convenção: 1 extremidade, 2 laço, 0 não incidente.");
-        }
-        return sb.toString();
+        return texto + "Peso: " + aresta.getPesoFormatado();
     }
 
     // ============================================================
@@ -373,33 +226,29 @@ public class Grafo {
     // ============================================================
 
     public String formatarGrafo() {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("========== LISTA DE ADJACÊNCIA ==========\n");
-        sb.append(dirigido ? "Tipo: GRAFO DIRIGIDO\n" : "Tipo: GRAFO NÃO DIRIGIDO\n");
+        String texto = "========== LISTA DE ADJACÊNCIA ==========\n";
+        texto += dirigido ? "Tipo: GRAFO DIRIGIDO\n" : "Tipo: GRAFO NÃO DIRIGIDO\n";
 
         if (vertices.isEmpty()) {
-            sb.append("O grafo não possui vértices.");
-            return sb.toString();
+            return texto + "O grafo não possui vértices.";
         }
 
         for (Vertice v : vertices) {
-            sb.append(v.getId()).append(" -> ");
+            texto += v.getId() + " -> ";
 
             if (v.getAdjacencias().isEmpty()) {
-                sb.append("(isolado)\n");
+                texto += "(isolado)\n";
                 continue;
             }
 
             for (Aresta a : v.getAdjacencias()) {
-                String vizinho = a.oposto(v).getId();
                 String ligacao = dirigido ? " -> " : " -- ";
-                sb.append('[').append(a.getId()).append(ligacao).append(vizinho)
-                        .append(", peso=").append(a.getPesoFormatado()).append("] ");
+                texto += "[" + a.getId() + ligacao + a.oposto(v).getId()
+                        + ", peso=" + a.getPesoFormatado() + "] ";
             }
-            sb.append('\n');
+            texto += "\n";
         }
-        return sb.toString().trim();
+        return texto.trim();
     }
 
     // ============================================================
@@ -424,8 +273,8 @@ public class Grafo {
             throw new IllegalArgumentException("Vértice inicial não existe: " + idInicial);
         }
 
-        Map<Vertice, List<Aresta>> incidencia = mapaIncidencia(false);
-        Set<Vertice> visitados = new LinkedHashSet<>();
+        Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
+        Set<Vertice> visitados = new HashSet<>();
         List<Aresta> arvore = new ArrayList<>();
         double custo = 0.0;
         int componentes = 0;
@@ -507,14 +356,12 @@ public class Grafo {
             throw new IllegalArgumentException("Vértice de chegada não existe: " + idDestino);
         }
 
-        Map<Vertice, List<Aresta>> incidencia = mapaIncidencia(dirigido);
-
-        Set<Vertice> visitados = new LinkedHashSet<>();
+        Set<Vertice> visitados = new HashSet<>();
         List<Vertice> ordem = new ArrayList<>();
         List<Aresta> arvore = new ArrayList<>();
         Map<Vertice, Aresta> chegada = new HashMap<>();
 
-        boolean encontrou = explorar(origem, destino, incidencia, visitados, ordem, arvore, chegada);
+        boolean encontrou = explorar(origem, destino, visitados, ordem, arvore, chegada);
 
         List<Aresta> caminhoArestas = new ArrayList<>();
         List<Vertice> caminhoVertices = new ArrayList<>();
@@ -537,59 +384,38 @@ public class Grafo {
     }
 
     /**
-     * Percurso em profundidade com pilha explícita, o que evita estouro de
-     * pilha de recursão em grafos grandes. A ordem de visita é a mesma da
-     * versão recursiva: segue sempre pela primeira aresta ainda não explorada.
+     * Percurso recursivo em profundidade sobre a lista de adjacência.
+     * Visita o vértice atual, e para cada aresta ainda não explorada desce
+     * no vizinho não visitado. Retorna verdadeiro assim que alcança o
+     * destino, o que interrompe a busca.
+     *
+     * Em grafo dirigido a lista de adjacência já contém apenas os arcos que
+     * saem do vértice, então o sentido é respeitado sem tratamento extra.
      */
-    private boolean explorar(Vertice origem, Vertice destino,
-                             Map<Vertice, List<Aresta>> incidencia,
+    private boolean explorar(Vertice atual, Vertice destino,
                              Set<Vertice> visitados, List<Vertice> ordem,
                              List<Aresta> arvore, Map<Vertice, Aresta> chegada) {
 
-        visitados.add(origem);
-        ordem.add(origem);
+        visitados.add(atual);
+        ordem.add(atual);
 
-        if (origem == destino) {
+        if (atual == destino) {
             return true;
         }
 
-        Deque<Vertice> pilhaVertices = new ArrayDeque<>();
-        Deque<Iterator<Aresta>> pilhaArestas = new ArrayDeque<>();
+        for (Aresta a : atual.getAdjacencias()) {
+            Vertice proximo = a.oposto(atual);
 
-        pilhaVertices.push(origem);
-        pilhaArestas.push(incidencia.get(origem).iterator());
-
-        while (!pilhaVertices.isEmpty()) {
-            Vertice atual = pilhaVertices.peek();
-            Iterator<Aresta> it = pilhaArestas.peek();
-            boolean avancou = false;
-
-            while (it.hasNext()) {
-                Aresta a = it.next();
-                Vertice proximo = a.oposto(atual);
-
-                if (visitados.contains(proximo)) {
-                    continue;
-                }
-
-                visitados.add(proximo);
-                ordem.add(proximo);
-                arvore.add(a);
-                chegada.put(proximo, a);
-
-                if (proximo == destino) {
-                    return true;
-                }
-
-                pilhaVertices.push(proximo);
-                pilhaArestas.push(incidencia.get(proximo).iterator());
-                avancou = true;
-                break;
+            if (visitados.contains(proximo)) {
+                continue;
             }
 
-            if (!avancou) {
-                pilhaVertices.pop();
-                pilhaArestas.pop();
+            // Aresta da árvore: foi por ela que o vizinho foi descoberto.
+            arvore.add(a);
+            chegada.put(proximo, a);
+
+            if (explorar(proximo, destino, visitados, ordem, arvore, chegada)) {
+                return true;
             }
         }
 
@@ -608,16 +434,16 @@ public class Grafo {
     public boolean[][] matrizAlcancabilidade() {
         int n = vertices.size();
         boolean[][] r = new boolean[n][n];
-        Map<Vertice, Integer> indices = indices();
 
         // Todo vértice alcança a si mesmo.
         for (int i = 0; i < n; i++) {
             r[i][i] = true;
         }
 
+        // A posição do vértice na lista já é o seu índice na matriz.
         for (Aresta a : arestas) {
-            int i = indices.get(a.getOrigem());
-            int j = indices.get(a.getDestino());
+            int i = vertices.indexOf(a.getOrigem());
+            int j = vertices.indexOf(a.getDestino());
             r[i][j] = true;
             if (!dirigido) {
                 r[j][i] = true;

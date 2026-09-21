@@ -2,10 +2,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Vértice do grafo.
- *
- * Cada vértice guarda seu identificador e a sua própria lista de
- * adjacência, que é a lista de arestas/arcos incidentes sobre ele.
+ Vértice do grafo.
+ Cada vértice guarda seu id e a sua própria lista de
+ adjacência, que é a lista de arestas/arcos incidentes sobre ele.
  */
 public class Vertice {
 

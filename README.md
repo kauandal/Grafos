@@ -13,7 +13,8 @@ Pela linha de comando, a partir de `Grafos_m1_1/src`:
 javac -encoding UTF-8 -d ../out *.java && java -cp ../out Main
 ```
 
-Requer JDK 17 ou superior.
+Requer Java 11 ou superior. O `GrafosM1.jar` entregue foi compilado para essa versão e pode
+ser executado direto com `java -jar GrafosM1.jar`.
 
 ## Estrutura
 
@@ -21,7 +22,7 @@ Requer JDK 17 ou superior.
 |---|---|
 | `Vertice.java` | Vértice com identificador e sua lista de adjacência |
 | `Aresta.java` | Aresta/arco com identificador, extremidades e peso |
-| `Grafo.java` | Grafo dirigido ou não dirigido em lista de adjacência, operações, matrizes e algoritmos |
+| `Grafo.java` | Grafo dirigido ou não dirigido em lista de adjacência, operações e algoritmos |
 | `PainelGrafo.java` | Desenho gráfico do grafo, das árvores e das componentes |
 | `TelaPrincipal.java` | Janela com moldura, menu e visualização do grafo ativo |
 | `Main.java` | Ponto de entrada |
@@ -29,8 +30,8 @@ Requer JDK 17 ou superior.
 ## Representação
 
 Lista de adjacência. Cada `Vertice` guarda a lista das arestas/arcos incidentes sobre ele.
-O `Grafo` mantém ainda a lista geral de arestas, usada para busca por identificador e para
-montar as matrizes. O atributo `dirigido` define se o par (v, w) é ordenado (arco) ou não
+O `Grafo` mantém ainda a lista geral de arestas, usada para busca por identificador e pelo
+algoritmo de Roy. O atributo `dirigido` define se o par (v, w) é ordenado (arco) ou não
 ordenado (aresta).
 
 Em grafo não dirigido a aresta é registrada na lista dos dois extremos. Em grafo dirigido o
@@ -40,16 +41,14 @@ arco é registrado apenas na lista do vértice de origem. O laço é registrado 
 
 | Item | Implementação | Menu |
 |---|---|---|
-| Inserir vértice isolado | `Grafo.inserirVertice` | Vértice |
-| Inserir aresta/arco | `Grafo.inserirAresta` | Aresta/Arco |
-| Remover vértice e suas ligações | `Grafo.removerVertice` | Vértice |
-| Remover aresta/arco | `Grafo.removerAresta` | Aresta/Arco |
-| Verificar adjacência | `Grafo.saoAdjacentes` | Aresta/Arco |
-| Valor da aresta/arco | `Grafo.retornarValorAresta` | Aresta/Arco |
-| Extremidades da aresta/arco | `Grafo.formatarExtremidades` | Aresta/Arco |
+| Inserir vértice isolado | `Grafo.inserirVertice` | Operações |
+| Inserir aresta/arco | `Grafo.inserirAresta` | Operações |
+| Remover vértice e suas ligações | `Grafo.removerVertice` | Operações |
+| Remover aresta/arco | `Grafo.removerAresta` | Operações |
+| Verificar adjacência | `Grafo.saoAdjacentes` | Operações |
+| Valor da aresta/arco | `Grafo.retornarValorAresta` | Operações |
+| Extremidades da aresta/arco | `Grafo.formatarExtremidades` | Operações |
 | Mostrar o grafo graficamente | `PainelGrafo` | sempre visível na janela principal |
-| Matriz de adjacência | `Grafo.matrizAdjacencia` | Matrizes |
-| Matriz de incidência | `Grafo.matrizIncidencia` | Matrizes |
 | Prim e custo da AGM | `Grafo.prim` | Algoritmos |
 | Busca em profundidade guiada | `Grafo.buscaEmProfundidade` | Algoritmos |
 | Roy: componentes conexas e fortemente conexas | `Grafo.royComponentes` | Algoritmos |
@@ -76,10 +75,6 @@ Roy é aplicado como fecho transitivo (Roy-Warshall) sobre a matriz booleana de 
 Dois vértices pertencem ao mesmo conjunto quando um alcança o outro nos dois sentidos, o que
 dá componentes conexas no grafo não dirigido e fortemente conexas no dirigido. Cada conjunto
 recebe uma cor no desenho.
-
-Na matriz de adjacência, havendo arestas paralelas entre o mesmo par prevalece o menor peso.
-Na matriz de incidência, o laço vale 2 em grafo não dirigido e 0 em grafo dirigido, conforme
-a convenção usual.
 
 No desenho, o laço aparece como um círculo acima do vértice. Em grafo dirigido a reta é
 deslocada para a lateral, de modo que o arco de ida e o de volta entre o mesmo par não se
