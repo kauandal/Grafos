@@ -237,10 +237,6 @@ public class Grafo {
         return sb.toString();
     }
 
-    public void retornarExtremidades(String idAresta) {
-        System.out.println(formatarExtremidades(idAresta));
-    }
-
     // ============================================================
     // MATRIZ DE ADJACÊNCIA
     // ============================================================
@@ -299,10 +295,6 @@ public class Grafo {
 
         sb.append("Observação: 0 indica ausência de aresta/arco entre o par.");
         return sb.toString();
-    }
-
-    public void mostrarMatrizAdjacencia() {
-        System.out.println(formatarMatrizAdjacencia());
     }
 
     // ============================================================
@@ -376,10 +368,6 @@ public class Grafo {
         return sb.toString();
     }
 
-    public void mostrarMatrizIncidencia() {
-        System.out.println(formatarMatrizIncidencia());
-    }
-
     // ============================================================
     // LISTA DE ADJACÊNCIA EM TEXTO
     // ============================================================
@@ -412,10 +400,6 @@ public class Grafo {
             sb.append('\n');
         }
         return sb.toString().trim();
-    }
-
-    public void mostrarGrafo() {
-        System.out.println(formatarGrafo());
     }
 
     // ============================================================
@@ -681,31 +665,6 @@ public class Grafo {
             componentes.add(componente);
         }
         return componentes;
-    }
-
-    public String formatarMatrizAlcancabilidade() {
-        if (vertices.isEmpty()) {
-            return "O grafo não possui vértices.";
-        }
-
-        boolean[][] r = matrizAlcancabilidade();
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("===== MATRIZ DE ALCANÇABILIDADE (ROY) =====\n");
-        sb.append(String.format("%8s", ""));
-        for (Vertice v : vertices) {
-            sb.append(String.format("%10s", v.getId()));
-        }
-        sb.append('\n');
-
-        for (int i = 0; i < r.length; i++) {
-            sb.append(String.format("%8s", vertices.get(i).getId()));
-            for (int j = 0; j < r[i].length; j++) {
-                sb.append(String.format("%10d", r[i][j] ? 1 : 0));
-            }
-            sb.append('\n');
-        }
-        return sb.toString().trim();
     }
 
     // ============================================================
