@@ -1,27 +1,26 @@
-# Teoria dos Grafos - Trabalhos M1 e T2
+# Teoria dos Grafos
 
 Kauan Rocha Dalfovo
 Gustavo Odilon
 
-Projeto único: o T2 estende a ferramenta construída no M1, como o enunciado permite.
 
 ## Como executar
 
-Abrir a pasta `Grafos_m1_1` no IntelliJ e executar a classe `Main` (`src/Main.java`).
+Abrir a pasta `Grafos` no IntelliJ e executar a classe `Main` (`src/Main.java`).
 
 Pela linha de comando, a partir desta pasta:
 
 ```bash
-java -jar GrafosM1.jar
+java -jar Grafos.jar
 ```
 
-Para compilar do fonte, a partir de `Grafos_m1_1/src`:
+Para compilar do fonte, a partir de `Grafos/src`:
 
 ```bash
 javac -encoding UTF-8 -d ../out *.java && java -cp ../out Main
 ```
 
-Requer Java 11 ou superior. O `GrafosM1.jar` entregue foi compilado para essa versão.
+Requer Java 11 ou superior. O `Grafos.jar` entregue foi compilado para essa versão.
 
 ## Estrutura
 
@@ -48,7 +47,7 @@ arco é registrado apenas na lista do vértice de origem. O laço é registrado 
 O vértice pode guardar latitude e longitude. Sem elas o grafo funciona normalmente; com elas,
 o A* passa a dispor de heurística.
 
-## Itens do T2
+## Operações e algoritmos
 
 | Item | Implementação | Menu |
 |---|---|---|
@@ -61,10 +60,6 @@ o A* passa a dispor de heurística.
 | Mapa do Paraná | `TelaPrincipal.carregarMapaParana` | Grafo |
 | Testar vários grafos por arquivo | `ArquivoGrafo` | Grafo |
 
-## Itens do M1
-
-| Item | Implementação | Menu |
-|---|---|---|
 | Inserir vértice isolado | `Grafo.inserirVertice` | Operações |
 | Inserir aresta/arco | `Grafo.inserirAresta` | Operações |
 | Remover vértice e suas ligações | `Grafo.removerVertice` | Operações |
