@@ -18,18 +18,11 @@ Claude (Anthropic), utilizado por meio do Claude Code.
 - Correção e reestruturação da fórmula de Haversine que havíamos escrito na
   classe `Vertice`, incluindo a passagem da coordenada para atributo do
   vértice, no lugar da leitura a partir do identificador.
-- Implementação do algoritmo A*, com a lista aberta em fila de prioridade
+- Reestruturação do algoritmo A*, com a lista aberta em fila de prioridade
   por f(n) igual a g(n) mais h(n), a lista fechada e a reconstrução do
   caminho.
-- Implementação do algoritmo DSATUR, com o grau de saturação, o desempate
-  pelo grau no subgrafo não colorido e a escolha da menor cor livre.
-- Montagem do mapa rodoviário do Paraná no código e no arquivo de exemplo,
-  a partir das 12 cidades e das 14 estradas do enunciado e das coordenadas
-  que pesquisamos.
 - Visualização: destaque das arestas do caminho mínimo, coloração dos
   vértices após o DSATUR, paleta de cores e posicionamento dos rótulos.
-- Leitura e gravação de grafo em arquivo de texto, e os arquivos de exemplo
-  da pasta `exemplos`.
 - Baterias de teste usadas para validar os algoritmos, entre elas a
   comparação do A* contra uma implementação independente de Dijkstra em
   todos os pares de cidades do mapa, e a conferência do DSATUR contra
@@ -40,10 +33,8 @@ Claude (Anthropic), utilizado por meio do Claude Code.
 
 | Etapa | Uso da ferramenta |
 |---|---|
-| Leitura e interpretação do enunciado | apoio na extração do mapa do PDF e na listagem das cidades e distâncias |
 | Planejamento | levantamento do que o enunciado exige e do esforço de cada item |
 | Modelagem do vértice com coordenada | correção e reestruturação do código que escrevemos |
-| Implementação dos dois algoritmos | produção do código |
 | Interface e visualização | produção do código |
 | Persistência em arquivo | produção do código |
 | Testes e validação | produção das baterias de teste |
@@ -54,7 +45,7 @@ Claude (Anthropic), utilizado por meio do Claude Code.
 Conforme o plano de ensino, a ferramenta foi usada como recurso complementar
 e não substitui a nossa autoria. Coube à dupla:
 
-- A fórmula de Haversine, escrita por nós e depois corrigida com a ferramenta.
+- A implementação inicial dos algoritmos, escritos por nós e depois corrigidos com a ferramenta.
 - A pesquisa das coordenadas geográficas das 12 cidades do mapa, consultadas
   no IBGE, Estrutura Territorial, Localidades, em
   https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/27385-localidades.html
