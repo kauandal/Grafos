@@ -1,4 +1,5 @@
 import javax.swing.BorderFactory;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -13,6 +14,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.event.ActionListener;
+import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -70,6 +72,11 @@ public class TelaPrincipal extends JFrame {
         grafoMenu.add(item("Novo grafo dirigido", e -> novo(true)));
         grafoMenu.add(item("Carregar exemplo não dirigido", e -> carregarExemplo(false)));
         grafoMenu.add(item("Carregar exemplo dirigido", e -> carregarExemplo(true)));
+        grafoMenu.add(item("Carregar mapa do Paraná", e -> carregarMapaParana()));
+        grafoMenu.addSeparator();
+        grafoMenu.add(item("Carregar grafo de arquivo", e -> carregarDeArquivo()));
+        grafoMenu.add(item("Salvar grafo em arquivo", e -> salvarEmArquivo()));
+        grafoMenu.addSeparator();
         grafoMenu.add(item("Lista de adjacência", e -> imprimir(grafo.formatarGrafo())));
         grafoMenu.add(item("Sair", e -> dispose()));
 
@@ -87,6 +94,9 @@ public class TelaPrincipal extends JFrame {
         alg.add(item("Prim: árvore geradora mínima", e -> prim()));
         alg.add(item("Busca em profundidade guiada", e -> busca()));
         alg.add(item("Roy: componentes conexas", e -> roy()));
+        alg.addSeparator();
+        alg.add(item("DSATUR: coloração do grafo", e -> dsatur()));
+        alg.add(item("A*: caminho mínimo", e -> aEstrela()));
 
         JMenu exibir = new JMenu("Exibição");
         exibir.add(item("Limpar destaques", e -> painel.limpar()));
@@ -143,6 +153,96 @@ public class TelaPrincipal extends JFrame {
         painel.mostrar(grafo);
         saida.setText("");
         imprimir(grafo.formatarGrafo());
+    }
+
+    /**
+     Mapa rodoviário do Paraná usado para testar o A*. Os pesos das arestas
+     são a distância por estrada, em quilômetros. As coordenadas geográficas
+     ficam nos vértices e alimentam a heurística de Haversine.
+     */
+    private void carregarMapaParana() {
+        grafo = new Grafo(false);
+
+        // Coordenadas geográficas das sedes municipais, conforme o IBGE.
+        grafo.inserirVertice("Curitiba", -25.4133, -49.2679);
+        grafo.inserirVertice("Paranaguá", -25.5189, -48.5091);
+        grafo.inserirVertice("Ponta Grossa", -25.0964, -50.1722);
+        grafo.inserirVertice("São Mateus do Sul", -25.8732, -50.3855);
+        grafo.inserirVertice("Guarapuava", -25.3863, -51.4699);
+        grafo.inserirVertice("Londrina", -23.3355, -51.1506);
+        grafo.inserirVertice("Maringá", -23.4240, -51.9395);
+        grafo.inserirVertice("Umuarama", -23.7595, -53.3118);
+        grafo.inserirVertice("Toledo", -24.7227, -53.7403);
+        grafo.inserirVertice("Cascavel", -24.9530, -53.4796);
+        grafo.inserirVertice("Foz do Iguaçu", -25.5468, -54.5884);
+        grafo.inserirVertice("Francisco Beltrão", -26.0802, -53.0554);
+
+        grafo.inserirAresta("e1", "Umuarama", "Maringá", 190);
+        grafo.inserirAresta("e2", "Umuarama", "Toledo", 126);
+        grafo.inserirAresta("e3", "Maringá", "Londrina", 114);
+        grafo.inserirAresta("e4", "Maringá", "Ponta Grossa", 314);
+        grafo.inserirAresta("e5", "Londrina", "Ponta Grossa", 273);
+        grafo.inserirAresta("e6", "Toledo", "Cascavel", 50);
+        grafo.inserirAresta("e7", "Cascavel", "Foz do Iguaçu", 143);
+        grafo.inserirAresta("e8", "Cascavel", "Francisco Beltrão", 186);
+        grafo.inserirAresta("e9", "Cascavel", "Guarapuava", 250);
+        grafo.inserirAresta("e10", "Guarapuava", "Ponta Grossa", 165);
+        grafo.inserirAresta("e11", "Francisco Beltrão", "São Mateus do Sul", 354);
+        grafo.inserirAresta("e12", "São Mateus do Sul", "Curitiba", 157);
+        grafo.inserirAresta("e13", "Ponta Grossa", "Curitiba", 114);
+        grafo.inserirAresta("e14", "Curitiba", "Paranaguá", 90);
+
+        painel.mostrar(grafo);
+        saida.setText("");
+        imprimir("Mapa do Paraná carregado: 12 cidades e 14 estradas.\n"
+                + "Pesos em quilômetros por estrada. Coordenadas geográficas nos vértices.");
+        imprimir(grafo.formatarGrafo());
+    }
+
+    private void carregarDeArquivo() {
+        JFileChooser seletor = new JFileChooser(new File("."));
+        seletor.setDialogTitle("Carregar grafo de arquivo");
+
+        if (seletor.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File arquivo = seletor.getSelectedFile();
+        try {
+            grafo = ArquivoGrafo.carregar(arquivo);
+            painel.mostrar(grafo);
+            saida.setText("");
+            imprimir("Grafo carregado de " + arquivo.getName() + ".");
+            imprimir(grafo.formatarGrafo());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(),
+                    "Erro ao carregar o arquivo", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void salvarEmArquivo() {
+        if (grafo.getVertices().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "O grafo não possui vértices.",
+                    "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        JFileChooser seletor = new JFileChooser(new File("."));
+        seletor.setDialogTitle("Salvar grafo em arquivo");
+        seletor.setSelectedFile(new File("grafo.txt"));
+
+        if (seletor.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File arquivo = seletor.getSelectedFile();
+        try {
+            ArquivoGrafo.salvar(grafo, arquivo);
+            imprimir("Grafo gravado em " + arquivo.getName() + ".");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(),
+                    "Erro ao gravar o arquivo", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     // ============================================================
@@ -256,15 +356,12 @@ public class TelaPrincipal extends JFrame {
     // ============================================================
 
     private void prim() {
-        String inicial = perguntar("Vértice inicial do Prim:");
-        if (inicial == null) {
-            return;
-        }
         try {
-            Grafo.ResultadoAGM agm = grafo.prim(inicial);
+            // Não há vértice a escolher: a árvore geradora mínima é propriedade
+            // do grafo e o custo total não depende de onde a construção começa.
+            Grafo.ResultadoAGM agm = grafo.prim();
 
             String texto = "===== PRIM: ÁRVORE GERADORA MÍNIMA =====\n";
-            texto += "Vértice inicial: " + agm.getInicial().getId() + "\n";
             for (Aresta a : agm.getArestas()) {
                 texto += "  " + a.getId() + ": " + a.getOrigem().getId()
                         + " -- " + a.getDestino().getId()
@@ -318,6 +415,81 @@ public class TelaPrincipal extends JFrame {
             cores.put(b.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
             cores.put(b.getDestino().getId(), new Color(0xF5, 0xB4, 0xA8));
             painel.realcar(b.getArestasArvore(), idsDe(b.getCaminhoArestas()), cores);
+        } catch (RuntimeException ex) {
+            erro(ex);
+        }
+    }
+
+    private void dsatur() {
+        try {
+            Grafo.ResultadoColoracao r = grafo.dsatur();
+
+            String texto = "===== DSATUR: COLORAÇÃO DO GRAFO =====\n";
+            texto += "Cores utilizadas: " + r.getTotalCores() + "\n\n";
+
+            for (Vertice v : grafo.getVertices()) {
+                texto += String.format("  %-20s cor %d%n", v.getId(), r.getCores().get(v));
+            }
+
+            texto += "\nColoração própria, nenhuma aresta com as duas pontas da mesma cor: "
+                    + (grafo.coloracaoValida(r.getCores()) ? "SIM" : "NÃO");
+            imprimir(texto);
+
+            Map<String, Color> cores = new HashMap<>();
+            for (Map.Entry<Vertice, Integer> e : r.getCores().entrySet()) {
+                cores.put(e.getKey().getId(), PainelGrafo.corDaClasse(e.getValue()));
+            }
+            painel.realcar(null, null, cores);
+        } catch (RuntimeException ex) {
+            erro(ex);
+        }
+    }
+
+    private void aEstrela() {
+        String origem = perguntar("Cidade de origem:");
+        if (origem == null) {
+            return;
+        }
+        String destino = perguntar("Cidade de destino:");
+        if (destino == null) {
+            return;
+        }
+        try {
+            Grafo.ResultadoCaminho r = grafo.aEstrela(origem, destino);
+
+            String texto = "===== A*: CAMINHO MÍNIMO =====\n";
+            texto += "Origem: " + r.getOrigem().getId()
+                    + "   Destino: " + r.getDestino().getId() + "\n\n";
+
+            // O enunciado exige a tabela h(n) na tela, montada em relação ao
+            // destino escolhido e calculada pela fórmula de Haversine.
+            texto += "h(n) em linha reta até " + r.getDestino().getId()
+                    + ", pela fórmula de Haversine:\n";
+            for (Map.Entry<Vertice, Double> e : grafo.heuristicas(destino).entrySet()) {
+                texto += String.format("  %-20s %8.1f km%n", e.getKey().getId(), e.getValue());
+            }
+
+            texto += "\nOrdem de expansão: " + r.getOrdemExpansao() + "\n";
+
+            if (r.isEncontrou()) {
+                texto += "CAMINHO: " + r.getCaminhoVertices() + "\n";
+                texto += "Arestas percorridas:\n";
+                for (Aresta a : r.getCaminhoArestas()) {
+                    texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+                            + (grafo.isDirigido() ? " -> " : " -- ") + a.getDestino().getId()
+                            + "  " + a.getPesoFormatado() + " km\n";
+                }
+                texto += "CUSTO TOTAL: " + Aresta.formatarPeso(r.getCustoTotal()) + " km";
+            } else {
+                texto += r.getDestino().getId() + " não é alcançável a partir de "
+                        + r.getOrigem().getId() + ".";
+            }
+            imprimir(texto);
+
+            Map<String, Color> cores = new HashMap<>();
+            cores.put(r.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
+            cores.put(r.getDestino().getId(), new Color(0xF5, 0xB4, 0xA8));
+            painel.realcar(null, idsDe(r.getCaminhoArestas()), cores);
         } catch (RuntimeException ex) {
             erro(ex);
         }

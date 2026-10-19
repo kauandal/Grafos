@@ -2,6 +2,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
@@ -90,13 +91,26 @@ public class Grafo {
 
     /** Insere no grafo um novo vértice isolado. */
     public void inserirVertice(String id) {
+        validarNovoVertice(id);
+        vertices.add(new Vertice(id));
+    }
+
+    /**
+     Insere um vértice isolado com coordenada geográfica, em graus decimais.
+     A coordenada é usada pela heurística do A*.
+     */
+    public void inserirVertice(String id, double latitude, double longitude) {
+        validarNovoVertice(id);
+        vertices.add(new Vertice(id, latitude, longitude));
+    }
+
+    private void validarNovoVertice(String id) {
         if (id == null || id.trim().isEmpty()) {
             throw new IllegalArgumentException("O identificador do vértice não pode ser vazio.");
         }
         if (buscarVertice(id) != null) {
             throw new IllegalArgumentException("Já existe um vértice com o identificador: " + id);
         }
-        vertices.add(new Vertice(id));
     }
 
     /** Insere no grafo uma aresta/arco entre os vértices v e w. */
@@ -256,21 +270,21 @@ public class Grafo {
     // ============================================================
 
     /**
-     * Algoritmo de Prim a partir de um vértice inicial.
+     * Algoritmo de Prim sobre o grafo.
+     *
+     * A árvore geradora mínima é propriedade do grafo: o custo total é o
+     * mesmo independente do vértice por onde a construção começa, por isso
+     * o ponto de partida não é parâmetro. A árvore cresce a partir do
+     * primeiro vértice da lista.
      *
      * Prim é definido para grafo não dirigido. Em grafo dirigido o
      * algoritmo é aplicado sobre o grafo subjacente, ignorando o sentido.
      * Se o grafo for desconexo, o resultado é uma floresta geradora
      * mínima, com uma árvore por componente.
      */
-    public ResultadoAGM prim(String idInicial) {
+    public ResultadoAGM prim() {
         if (vertices.isEmpty()) {
             throw new IllegalStateException("O grafo não possui vértices.");
-        }
-
-        Vertice inicial = (idInicial == null) ? vertices.get(0) : buscarVertice(idInicial);
-        if (inicial == null) {
-            throw new IllegalArgumentException("Vértice inicial não existe: " + idInicial);
         }
 
         Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
@@ -279,17 +293,10 @@ public class Grafo {
         double custo = 0.0;
         int componentes = 0;
 
-        // O vértice escolhido é a raiz da primeira árvore; os demais
-        // servem de raiz apenas se o grafo for desconexo.
-        List<Vertice> raizes = new ArrayList<>();
-        raizes.add(inicial);
-        for (Vertice v : vertices) {
-            if (v != inicial) {
-                raizes.add(v);
-            }
-        }
-
-        for (Vertice raiz : raizes) {
+        // O primeiro vértice é a raiz da árvore. Os demais só viram raiz de
+        // uma nova árvore se o grafo for desconexo e ainda houver vértice
+        // fora de tudo o que já foi alcançado.
+        for (Vertice raiz : vertices) {
             if (visitados.contains(raiz)) {
                 continue;
             }
@@ -321,7 +328,7 @@ public class Grafo {
             }
         }
 
-        return new ResultadoAGM(inicial, arvore, custo, componentes);
+        return new ResultadoAGM(arvore, custo, componentes);
     }
 
     /** Marca o vértice como pertencente à árvore e enfileira suas arestas candidatas. */
@@ -423,6 +430,270 @@ public class Grafo {
     }
 
     // ============================================================
+    // ALGORITMO DSATUR: COLORAÇÃO DE VÉRTICES
+    // ============================================================
+
+    /**
+     Algoritmo DSATUR de coloração de vértices.
+
+     Colore os vértices de forma que nenhuma aresta ligue dois vértices da
+     mesma cor, tentando usar o menor número possível de cores. A cada passo:
+
+     1. escolhe o vértice ainda não colorido com maior grau de saturação, que
+        é o número de cores distintas já presentes entre os seus vizinhos;
+     2. desempata pelo maior grau dentro do subgrafo ainda não colorido;
+     3. atribui a menor cor que nenhum vizinho esteja usando.
+
+     DSATUR é heurística: não garante o número cromático mínimo em todo grafo,
+     mas é exato para grafos bipartidos e costuma acertar em grafos pequenos.
+
+     A coloração ignora o sentido dos arcos, porque dois vértices ligados
+     precisam de cores diferentes independentemente da direção. Laços são
+     ignorados, já que um vértice não pode ter cor diferente de si mesmo.
+     */
+    public ResultadoColoracao dsatur() {
+        if (vertices.isEmpty()) {
+            throw new IllegalStateException("O grafo não possui vértices.");
+        }
+
+        Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
+        Map<Vertice, Integer> cores = new LinkedHashMap<>();
+
+        while (cores.size() < vertices.size()) {
+            Vertice escolhido = maisSaturado(incidencia, cores);
+            cores.put(escolhido, menorCorLivre(escolhido, incidencia, cores));
+        }
+
+        int total = 0;
+        for (int cor : cores.values()) {
+            total = Math.max(total, cor + 1);
+        }
+
+        return new ResultadoColoracao(cores, total);
+    }
+
+    /** Vértice não colorido com maior saturação, desempatando pelo maior grau. */
+    private Vertice maisSaturado(Map<Vertice, List<Aresta>> incidencia, Map<Vertice, Integer> cores) {
+        Vertice melhor = null;
+        int melhorSaturacao = -1;
+        int melhorGrau = -1;
+
+        for (Vertice v : vertices) {
+            if (cores.containsKey(v)) {
+                continue;
+            }
+
+            int saturacao = saturacao(v, incidencia, cores);
+            int grau = grauEntreNaoColoridos(v, incidencia, cores);
+
+            if (saturacao > melhorSaturacao
+                    || (saturacao == melhorSaturacao && grau > melhorGrau)) {
+                melhor = v;
+                melhorSaturacao = saturacao;
+                melhorGrau = grau;
+            }
+        }
+        return melhor;
+    }
+
+    /** Grau de saturação: quantas cores distintas já aparecem entre os vizinhos. */
+    private int saturacao(Vertice v, Map<Vertice, List<Aresta>> incidencia, Map<Vertice, Integer> cores) {
+        List<Integer> distintas = new ArrayList<>();
+
+        for (Aresta a : incidencia.get(v)) {
+            Vertice vizinho = a.oposto(v);
+            if (vizinho == v || !cores.containsKey(vizinho)) {
+                continue;
+            }
+            if (!distintas.contains(cores.get(vizinho))) {
+                distintas.add(cores.get(vizinho));
+            }
+        }
+        return distintas.size();
+    }
+
+    /** Grau do vértice contando apenas os vizinhos ainda sem cor. */
+    private int grauEntreNaoColoridos(Vertice v, Map<Vertice, List<Aresta>> incidencia,
+                                      Map<Vertice, Integer> cores) {
+        int grau = 0;
+        for (Aresta a : incidencia.get(v)) {
+            Vertice vizinho = a.oposto(v);
+            if (vizinho != v && !cores.containsKey(vizinho)) {
+                grau++;
+            }
+        }
+        return grau;
+    }
+
+    /** Menor número de cor que nenhum vizinho já colorido esteja usando. */
+    private int menorCorLivre(Vertice v, Map<Vertice, List<Aresta>> incidencia,
+                              Map<Vertice, Integer> cores) {
+        List<Integer> usadas = new ArrayList<>();
+
+        for (Aresta a : incidencia.get(v)) {
+            Vertice vizinho = a.oposto(v);
+            if (vizinho != v && cores.containsKey(vizinho)) {
+                usadas.add(cores.get(vizinho));
+            }
+        }
+
+        int cor = 0;
+        while (usadas.contains(cor)) {
+            cor++;
+        }
+        return cor;
+    }
+
+    /**
+     Confere se a coloração é própria, isto é, se nenhuma aresta liga dois
+     vértices da mesma cor. Laços são desconsiderados.
+     */
+    public boolean coloracaoValida(Map<Vertice, Integer> cores) {
+        for (Aresta a : arestas) {
+            if (a.isLaco()) {
+                continue;
+            }
+            Integer corOrigem = cores.get(a.getOrigem());
+            Integer corDestino = cores.get(a.getDestino());
+            if (corOrigem == null || corDestino == null || corOrigem.equals(corDestino)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // ============================================================
+    // ALGORITMO A*: CAMINHO MÍNIMO
+    // ============================================================
+
+    /**
+     Algoritmo A* entre dois vértices.
+
+     Cada vértice é avaliado por f(n) = g(n) + h(n), onde g(n) é o custo real
+     já percorrido desde a origem, somando os pesos das arestas, e h(n) é a
+     estimativa do que falta até o destino, calculada pela fórmula de
+     Haversine sobre as coordenadas geográficas.
+
+     Como Haversine mede em linha reta, h(n) nunca superestima o que falta,
+     ou seja, a heurística é admissível, e por isso o A* devolve o caminho de
+     menor custo. Em grafo sem coordenadas h(n) vale zero e o algoritmo se
+     comporta como o de Dijkstra.
+
+     Em grafo dirigido a lista de adjacência contém apenas os arcos que saem
+     do vértice, então o sentido é respeitado.
+     */
+    public ResultadoCaminho aEstrela(String idOrigem, String idDestino) {
+        Vertice origem = buscarVertice(idOrigem);
+        Vertice destino = buscarVertice(idDestino);
+
+        if (origem == null) {
+            throw new IllegalArgumentException("Vértice de origem não existe: " + idOrigem);
+        }
+        if (destino == null) {
+            throw new IllegalArgumentException("Vértice de destino não existe: " + idDestino);
+        }
+
+        Map<Vertice, Double> custoConhecido = new HashMap<>();
+        Map<Vertice, Aresta> chegada = new HashMap<>();
+
+        // Lista fechada: vértices já resolvidos. Como eles entram aqui na
+        // mesma ordem em que saem da fila, esta lista também é a ordem de
+        // expansão mostrada na tela.
+        List<Vertice> fechados = new ArrayList<>();
+
+        // Lista aberta: a fronteira, ordenada por f(n) = g(n) + h(n).
+        PriorityQueue<NoAberto> abertos = new PriorityQueue<>(
+                Comparator.comparingDouble((NoAberto n) -> n.f).thenComparing(n -> n.vertice.getId()));
+
+        custoConhecido.put(origem, 0.0);
+        abertos.add(new NoAberto(origem, origem.distanciaHaversine(destino)));
+
+        boolean encontrou = false;
+
+        while (!abertos.isEmpty()) {
+            Vertice atual = abertos.poll().vertice;
+
+            // O mesmo vértice pode ter sido enfileirado mais de uma vez com
+            // estimativas diferentes; a entrada antiga é descartada.
+            if (fechados.contains(atual)) {
+                continue;
+            }
+            fechados.add(atual);
+
+            if (atual == destino) {
+                encontrou = true;
+                break;
+            }
+
+            for (Aresta a : atual.getAdjacencias()) {
+                Vertice vizinho = a.oposto(atual);
+
+                if (fechados.contains(vizinho)) {
+                    continue;
+                }
+
+                double novoCusto = custoConhecido.get(atual) + a.getPeso();
+
+                // Só vale a pena seguir por aqui se for mais barato que o
+                // melhor caminho já conhecido até este vizinho.
+                if (!custoConhecido.containsKey(vizinho) || novoCusto < custoConhecido.get(vizinho)) {
+                    custoConhecido.put(vizinho, novoCusto);
+                    chegada.put(vizinho, a);
+                    abertos.add(new NoAberto(vizinho, novoCusto + vizinho.distanciaHaversine(destino)));
+                }
+            }
+        }
+
+        List<Vertice> caminhoVertices = new ArrayList<>();
+        List<Aresta> caminhoArestas = new ArrayList<>();
+
+        if (encontrou) {
+            Vertice atual = destino;
+            caminhoVertices.add(atual);
+            while (chegada.containsKey(atual)) {
+                Aresta a = chegada.get(atual);
+                caminhoArestas.add(0, a);
+                atual = a.oposto(atual);
+                caminhoVertices.add(0, atual);
+            }
+        }
+
+        double custoTotal = encontrou ? custoConhecido.get(destino) : 0.0;
+
+        return new ResultadoCaminho(origem, destino, encontrou, caminhoVertices,
+                caminhoArestas, custoTotal, fechados);
+    }
+
+    /**
+     Tabela h(n) de todos os vértices em relação ao destino informado, que é
+     a estimativa em linha reta que o A* usa.
+     */
+    public Map<Vertice, Double> heuristicas(String idDestino) {
+        Vertice destino = buscarVertice(idDestino);
+        if (destino == null) {
+            throw new IllegalArgumentException("Vértice de destino não existe: " + idDestino);
+        }
+
+        Map<Vertice, Double> tabela = new LinkedHashMap<>();
+        for (Vertice v : vertices) {
+            tabela.put(v, v.distanciaHaversine(destino));
+        }
+        return tabela;
+    }
+
+    /** Vértice na fila de abertos do A*, com a sua estimativa f. */
+    private static class NoAberto {
+
+        private final Vertice vertice;
+        private final double f;
+
+        NoAberto(Vertice vertice, double f) {
+            this.vertice = vertice;
+            this.f = f;
+        }
+    }
+
+    // ============================================================
     // ALGORITMO DE ROY: COMPONENTES CONEXAS / FORTEMENTE CONEXAS
     // ============================================================
 
@@ -500,20 +771,14 @@ public class Grafo {
     /** Resultado do algoritmo de Prim. */
     public static class ResultadoAGM {
 
-        private final Vertice inicial;
         private final List<Aresta> arestas;
         private final double custo;
         private final int componentes;
 
-        public ResultadoAGM(Vertice inicial, List<Aresta> arestas, double custo, int componentes) {
-            this.inicial = inicial;
+        public ResultadoAGM(List<Aresta> arestas, double custo, int componentes) {
             this.arestas = arestas;
             this.custo = custo;
             this.componentes = componentes;
-        }
-
-        public Vertice getInicial() {
-            return inicial;
         }
 
         public List<Aresta> getArestas() {
@@ -590,6 +855,80 @@ public class Grafo {
 
         public double getCustoCaminho() {
             return custoCaminho;
+        }
+    }
+
+    /** Resultado do algoritmo DSATUR. */
+    public static class ResultadoColoracao {
+
+        private final Map<Vertice, Integer> cores;
+        private final int totalCores;
+
+        public ResultadoColoracao(Map<Vertice, Integer> cores, int totalCores) {
+            this.cores = cores;
+            this.totalCores = totalCores;
+        }
+
+        /** Número da cor de cada vértice, começando em zero. */
+        public Map<Vertice, Integer> getCores() {
+            return cores;
+        }
+
+        public int getTotalCores() {
+            return totalCores;
+        }
+    }
+
+    /** Resultado do algoritmo A*. */
+    public static class ResultadoCaminho {
+
+        private final Vertice origem;
+        private final Vertice destino;
+        private final boolean encontrou;
+        private final List<Vertice> caminhoVertices;
+        private final List<Aresta> caminhoArestas;
+        private final double custoTotal;
+        private final List<Vertice> ordemExpansao;
+
+        public ResultadoCaminho(Vertice origem, Vertice destino, boolean encontrou,
+                                List<Vertice> caminhoVertices, List<Aresta> caminhoArestas,
+                                double custoTotal, List<Vertice> ordemExpansao) {
+            this.origem = origem;
+            this.destino = destino;
+            this.encontrou = encontrou;
+            this.caminhoVertices = caminhoVertices;
+            this.caminhoArestas = caminhoArestas;
+            this.custoTotal = custoTotal;
+            this.ordemExpansao = ordemExpansao;
+        }
+
+        public Vertice getOrigem() {
+            return origem;
+        }
+
+        public Vertice getDestino() {
+            return destino;
+        }
+
+        public boolean isEncontrou() {
+            return encontrou;
+        }
+
+        public List<Vertice> getCaminhoVertices() {
+            return caminhoVertices;
+        }
+
+        public List<Aresta> getCaminhoArestas() {
+            return caminhoArestas;
+        }
+
+        public double getCustoTotal() {
+            return custoTotal;
+        }
+
+        /** Vértices retirados da fila de abertos, na ordem em que foram expandidos. */
+        public List<Vertice> getOrdemExpansao() {
+            return ordemExpansao;
         }
     }
 }

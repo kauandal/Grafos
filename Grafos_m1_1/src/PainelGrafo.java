@@ -186,7 +186,23 @@ public class PainelGrafo extends JPanel {
         g2.setStroke(new BasicStroke(2f));
         g2.drawOval(p.x - RAIO, p.y - RAIO, RAIO * 2, RAIO * 2);
 
+        // O identificador fica sempre abaixo do círculo, independente do
+        // tamanho, para o desenho ficar uniforme e para nome longo, como de
+        // cidade, não vazar por cima das arestas.
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(v.getId(), p.x - fm.stringWidth(v.getId()) / 2, p.y + fm.getAscent() / 2 - 2);
+        escrever(g2, v.getId(), p.x, p.y + RAIO + fm.getAscent() + 2);
+    }
+
+    /**
+     Cor da classe de cor usada pela coloração. Acima do tamanho da paleta as
+     cores são geradas pelo matiz, espaçadas pela razão áurea, o que mantém
+     tons bem diferentes entre si por mais classes que apareçam.
+     */
+    public static Color corDaClasse(int indice) {
+        if (indice < PALETA.length) {
+            return PALETA[indice];
+        }
+        float matiz = (indice * 0.6180339f) % 1.0f;
+        return Color.getHSBColor(matiz, 0.35f, 0.95f);
     }
 }

@@ -1,14 +1,15 @@
 UNIVALI - Politecnica Kobrasol - Ciencia da Computacao - 2026/2
-GRAFOS T1 - profa. Fernanda Cunha
+GRAFOS - profa. Fernanda Cunha
 
 Kauan Rocha Dalfovo
 Gustavo Odilon
 
-Codigo fonte completo - 21/09/2026
+Trabalho T2: algoritmos DSATUR e A*
+Codigo fonte completo - 19/10/2026
 
 
 ================================================================
-  Vertice.java  (46 linhas)
+  Vertice.java  (110 linhas)
 ================================================================
 
      1	import java.util.ArrayList;
@@ -18,45 +19,109 @@ Codigo fonte completo - 21/09/2026
      5	 Vértice do grafo.
      6	 Cada vértice guarda seu id e a sua própria lista de
      7	 adjacência, que é a lista de arestas/arcos incidentes sobre ele.
-     8	 */
-     9	public class Vertice {
-    10	
-    11	    private final String id;
+     8	 Pode guardar também a coordenada geográfica, usada como heurística
+     9	 do A*. Vértice sem coordenada continua válido, para os grafos comuns.
+    10	 */
+    11	public class Vertice {
     12	
-    13	    /** Lista de adjacência: arestas/arcos incidentes sobre este vértice. */
-    14	    private final List<Aresta> adjacencias;
+    13	    /** Raio médio da Terra em quilômetros, usado pela fórmula de Haversine. */
+    14	    private static final double RAIO_TERRA_KM = 6371.0;
     15	
-    16	    public Vertice(String id) {
-    17	        this.id = id;
-    18	        this.adjacencias = new ArrayList<>();
-    19	    }
-    20	
-    21	    public String getId() {
-    22	        return id;
-    23	    }
+    16	    private final String id;
+    17	
+    18	    private final double latitude;
+    19	    private final double longitude;
+    20	    private final boolean temCoordenadas;
+    21	
+    22	    /** Lista de adjacência: arestas/arcos incidentes sobre este vértice. */
+    23	    private final List<Aresta> adjacencias;
     24	
-    25	    public List<Aresta> getAdjacencias() {
-    26	        return adjacencias;
-    27	    }
-    28	
-    29	    public void adicionarAresta(Aresta aresta) {
-    30	        adjacencias.add(aresta);
-    31	    }
-    32	
-    33	    public void removerAresta(Aresta aresta) {
-    34	        adjacencias.remove(aresta);
-    35	    }
-    36	
-    37	    /** Grau do vértice considerando a lista de adjacência armazenada. */
-    38	    public int getGrau() {
-    39	        return adjacencias.size();
-    40	    }
-    41	
-    42	    @Override
-    43	    public String toString() {
+    25	    /** Vértice comum, sem coordenada geográfica. */
+    26	    public Vertice(String id) {
+    27	        this(id, 0.0, 0.0, false);
+    28	    }
+    29	
+    30	    /** Vértice com coordenada geográfica, em graus decimais. */
+    31	    public Vertice(String id, double latitude, double longitude) {
+    32	        this(id, latitude, longitude, true);
+    33	    }
+    34	
+    35	    private Vertice(String id, double latitude, double longitude, boolean temCoordenadas) {
+    36	        this.id = id;
+    37	        this.latitude = latitude;
+    38	        this.longitude = longitude;
+    39	        this.temCoordenadas = temCoordenadas;
+    40	        this.adjacencias = new ArrayList<>();
+    41	    }
+    42	
+    43	    public String getId() {
     44	        return id;
     45	    }
-    46	}
+    46	
+    47	    public double getLatitude() {
+    48	        return latitude;
+    49	    }
+    50	
+    51	    public double getLongitude() {
+    52	        return longitude;
+    53	    }
+    54	
+    55	    public boolean temCoordenadas() {
+    56	        return temCoordenadas;
+    57	    }
+    58	
+    59	    public List<Aresta> getAdjacencias() {
+    60	        return adjacencias;
+    61	    }
+    62	
+    63	    public void adicionarAresta(Aresta aresta) {
+    64	        adjacencias.add(aresta);
+    65	    }
+    66	
+    67	    public void removerAresta(Aresta aresta) {
+    68	        adjacencias.remove(aresta);
+    69	    }
+    70	
+    71	    /** Grau do vértice considerando a lista de adjacência armazenada. */
+    72	    public int getGrau() {
+    73	        return adjacencias.size();
+    74	    }
+    75	
+    76	    /**
+    77	     Distância em linha reta, em quilômetros, entre este vértice e outro,
+    78	     pela fórmula de Haversine.
+    79	
+    80	     Haversine mede sobre a superfície da esfera, então o valor nunca é maior
+    81	     que a distância percorrida por estrada. É isso que torna a heurística
+    82	     admissível e garante que o A* encontre o caminho de menor custo.
+    83	
+    84	     Quando algum dos dois vértices não tem coordenada, devolve zero: sem
+    85	     heurística o A* se comporta como o algoritmo de Dijkstra, que continua
+    86	     correto, apenas explora mais vértices.
+    87	     */
+    88	    public double distanciaHaversine(Vertice outro) {
+    89	        if (!this.temCoordenadas || !outro.temCoordenadas) {
+    90	            return 0.0;
+    91	        }
+    92	
+    93	        double deltaLat = Math.toRadians(outro.latitude - this.latitude);
+    94	        double deltaLon = Math.toRadians(outro.longitude - this.longitude);
+    95	
+    96	        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+    97	                + Math.cos(Math.toRadians(this.latitude))
+    98	                * Math.cos(Math.toRadians(outro.latitude))
+    99	                * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+   100	
+   101	        double c = 2 * Math.asin(Math.min(1.0, Math.sqrt(a)));
+   102	
+   103	        return RAIO_TERRA_KM * c;
+   104	    }
+   105	
+   106	    @Override
+   107	    public String toString() {
+   108	        return id;
+   109	    }
+   110	}
 
 
 ================================================================
@@ -136,608 +201,1094 @@ Codigo fonte completo - 21/09/2026
 
 
 ================================================================
-  Grafo.java  (595 linhas)
+  Grafo.java  (934 linhas)
 ================================================================
 
      1	import java.util.ArrayList;
      2	import java.util.Comparator;
      3	import java.util.HashMap;
      4	import java.util.HashSet;
-     5	import java.util.List;
-     6	import java.util.Map;
-     7	import java.util.PriorityQueue;
-     8	import java.util.Set;
-     9	
-    10	/**
-    11	 Grafo dirigido ou não dirigido representado por LISTA DE ADJACÊNCIA.
-    12	 Atributos da representação:
-    13	 -dirigido: define se os pares (v, w) são ordenados (arco) ou não (aresta);
-    14	 -vertices: os vértices do grafo, cada um com sua própria lista de adjacência;
-    15	 -arestas: lista geral das arestas/arcos, usada para busca por identificador
-    16	 e pelo algoritmo de Roy.
-    17	 */
-    18	public class Grafo {
-    19	
-    20	    private final List<Vertice> vertices;
-    21	    private final List<Aresta> arestas;
-    22	    private final boolean dirigido;
-    23	
-    24	    public Grafo(boolean dirigido) {
-    25	        this.dirigido = dirigido;
-    26	        this.vertices = new ArrayList<>();
-    27	        this.arestas = new ArrayList<>();
-    28	    }
-    29	
-    30	    public boolean isDirigido() {
-    31	        return dirigido;
-    32	    }
-    33	
-    34	    public List<Vertice> getVertices() {
-    35	        return vertices;
-    36	    }
-    37	
-    38	    public List<Aresta> getArestas() {
-    39	        return arestas;
-    40	    }
-    41	
-    42	    // ============================================================
-    43	    // BUSCAS AUXILIARES
-    44	    // ============================================================
-    45	
-    46	    /** Procura um vértice pelo identificador. Retorna null quando não existe. */
-    47	    public Vertice buscarVertice(String id) {
-    48	        for (Vertice v : vertices) {
-    49	            if (v.getId().equals(id)) {
-    50	                return v;
-    51	            }
-    52	        }
-    53	        return null;
-    54	    }
-    55	
-    56	    /** Procura uma aresta/arco pelo identificador. Retorna null quando não existe. */
-    57	    public Aresta buscarAresta(String id) {
-    58	        for (Aresta a : arestas) {
-    59	            if (a.getId().equals(id)) {
-    60	                return a;
-    61	            }
-    62	        }
-    63	        return null;
-    64	    }
-    65	
-    66	    /**
-    67	     Arestas incidentes sobre cada vértice, ignorando o sentido.
-    68	     Em grafo não dirigido isso já é a própria lista de adjacência. Em grafo
-    69	     dirigido a lista de adjacência guarda apenas os arcos que saem do vértice,
-    70	     por isso o mapa precisa ser montado à parte. Usado só pelo Prim, que
-    71	     trabalha sobre o grafo subjacente.
-    72	     */
-    73	    private Map<Vertice, List<Aresta>> incidenciaSemSentido() {
-    74	        Map<Vertice, List<Aresta>> mapa = new HashMap<>();
-    75	        for (Vertice v : vertices) {
-    76	            mapa.put(v, new ArrayList<>());
-    77	        }
-    78	        for (Aresta a : arestas) {
-    79	            mapa.get(a.getOrigem()).add(a);
-    80	            if (!a.isLaco()) {
-    81	                mapa.get(a.getDestino()).add(a);
-    82	            }
-    83	        }
-    84	        return mapa;
-    85	    }
-    86	
-    87	    // ============================================================
-    88	    // OPERAÇÕES BÁSICAS
-    89	    // ============================================================
-    90	
-    91	    /** Insere no grafo um novo vértice isolado. */
-    92	    public void inserirVertice(String id) {
-    93	        if (id == null || id.trim().isEmpty()) {
-    94	            throw new IllegalArgumentException("O identificador do vértice não pode ser vazio.");
-    95	        }
-    96	        if (buscarVertice(id) != null) {
-    97	            throw new IllegalArgumentException("Já existe um vértice com o identificador: " + id);
-    98	        }
-    99	        vertices.add(new Vertice(id));
-   100	    }
-   101	
-   102	    /** Insere no grafo uma aresta/arco entre os vértices v e w. */
-   103	    public void inserirAresta(String idAresta, String idOrigem, String idDestino, double peso) {
-   104	        if (idAresta == null || idAresta.trim().isEmpty()) {
-   105	            throw new IllegalArgumentException("O identificador da aresta/arco não pode ser vazio.");
-   106	        }
-   107	        if (buscarAresta(idAresta) != null) {
-   108	            throw new IllegalArgumentException("Já existe uma aresta/arco com o identificador: " + idAresta);
-   109	        }
-   110	
-   111	        Vertice origem = buscarVertice(idOrigem);
-   112	        Vertice destino = buscarVertice(idDestino);
-   113	
-   114	        if (origem == null) {
-   115	            throw new IllegalArgumentException("O vértice de origem não existe: " + idOrigem);
-   116	        }
-   117	        if (destino == null) {
-   118	            throw new IllegalArgumentException("O vértice de destino não existe: " + idDestino);
-   119	        }
-   120	
-   121	        Aresta aresta = new Aresta(idAresta, origem, destino, peso);
-   122	        arestas.add(aresta);
-   123	
-   124	        origem.adicionarAresta(aresta);
-   125	
-   126	        // Em grafo não dirigido a aresta incide nas duas extremidades.
-   127	        // No laço a aresta é registrada uma única vez para não duplicar.
-   128	        if (!dirigido && !aresta.isLaco()) {
-   129	            destino.adicionarAresta(aresta);
+     5	import java.util.LinkedHashMap;
+     6	import java.util.List;
+     7	import java.util.Map;
+     8	import java.util.PriorityQueue;
+     9	import java.util.Set;
+    10	
+    11	/**
+    12	 Grafo dirigido ou não dirigido representado por LISTA DE ADJACÊNCIA.
+    13	 Atributos da representação:
+    14	 -dirigido: define se os pares (v, w) são ordenados (arco) ou não (aresta);
+    15	 -vertices: os vértices do grafo, cada um com sua própria lista de adjacência;
+    16	 -arestas: lista geral das arestas/arcos, usada para busca por identificador
+    17	 e pelo algoritmo de Roy.
+    18	 */
+    19	public class Grafo {
+    20	
+    21	    private final List<Vertice> vertices;
+    22	    private final List<Aresta> arestas;
+    23	    private final boolean dirigido;
+    24	
+    25	    public Grafo(boolean dirigido) {
+    26	        this.dirigido = dirigido;
+    27	        this.vertices = new ArrayList<>();
+    28	        this.arestas = new ArrayList<>();
+    29	    }
+    30	
+    31	    public boolean isDirigido() {
+    32	        return dirigido;
+    33	    }
+    34	
+    35	    public List<Vertice> getVertices() {
+    36	        return vertices;
+    37	    }
+    38	
+    39	    public List<Aresta> getArestas() {
+    40	        return arestas;
+    41	    }
+    42	
+    43	    // ============================================================
+    44	    // BUSCAS AUXILIARES
+    45	    // ============================================================
+    46	
+    47	    /** Procura um vértice pelo identificador. Retorna null quando não existe. */
+    48	    public Vertice buscarVertice(String id) {
+    49	        for (Vertice v : vertices) {
+    50	            if (v.getId().equals(id)) {
+    51	                return v;
+    52	            }
+    53	        }
+    54	        return null;
+    55	    }
+    56	
+    57	    /** Procura uma aresta/arco pelo identificador. Retorna null quando não existe. */
+    58	    public Aresta buscarAresta(String id) {
+    59	        for (Aresta a : arestas) {
+    60	            if (a.getId().equals(id)) {
+    61	                return a;
+    62	            }
+    63	        }
+    64	        return null;
+    65	    }
+    66	
+    67	    /**
+    68	     Arestas incidentes sobre cada vértice, ignorando o sentido.
+    69	     Em grafo não dirigido isso já é a própria lista de adjacência. Em grafo
+    70	     dirigido a lista de adjacência guarda apenas os arcos que saem do vértice,
+    71	     por isso o mapa precisa ser montado à parte. Usado só pelo Prim, que
+    72	     trabalha sobre o grafo subjacente.
+    73	     */
+    74	    private Map<Vertice, List<Aresta>> incidenciaSemSentido() {
+    75	        Map<Vertice, List<Aresta>> mapa = new HashMap<>();
+    76	        for (Vertice v : vertices) {
+    77	            mapa.put(v, new ArrayList<>());
+    78	        }
+    79	        for (Aresta a : arestas) {
+    80	            mapa.get(a.getOrigem()).add(a);
+    81	            if (!a.isLaco()) {
+    82	                mapa.get(a.getDestino()).add(a);
+    83	            }
+    84	        }
+    85	        return mapa;
+    86	    }
+    87	
+    88	    // ============================================================
+    89	    // OPERAÇÕES BÁSICAS
+    90	    // ============================================================
+    91	
+    92	    /** Insere no grafo um novo vértice isolado. */
+    93	    public void inserirVertice(String id) {
+    94	        validarNovoVertice(id);
+    95	        vertices.add(new Vertice(id));
+    96	    }
+    97	
+    98	    /**
+    99	     Insere um vértice isolado com coordenada geográfica, em graus decimais.
+   100	     A coordenada é usada pela heurística do A*.
+   101	     */
+   102	    public void inserirVertice(String id, double latitude, double longitude) {
+   103	        validarNovoVertice(id);
+   104	        vertices.add(new Vertice(id, latitude, longitude));
+   105	    }
+   106	
+   107	    private void validarNovoVertice(String id) {
+   108	        if (id == null || id.trim().isEmpty()) {
+   109	            throw new IllegalArgumentException("O identificador do vértice não pode ser vazio.");
+   110	        }
+   111	        if (buscarVertice(id) != null) {
+   112	            throw new IllegalArgumentException("Já existe um vértice com o identificador: " + id);
+   113	        }
+   114	    }
+   115	
+   116	    /** Insere no grafo uma aresta/arco entre os vértices v e w. */
+   117	    public void inserirAresta(String idAresta, String idOrigem, String idDestino, double peso) {
+   118	        if (idAresta == null || idAresta.trim().isEmpty()) {
+   119	            throw new IllegalArgumentException("O identificador da aresta/arco não pode ser vazio.");
+   120	        }
+   121	        if (buscarAresta(idAresta) != null) {
+   122	            throw new IllegalArgumentException("Já existe uma aresta/arco com o identificador: " + idAresta);
+   123	        }
+   124	
+   125	        Vertice origem = buscarVertice(idOrigem);
+   126	        Vertice destino = buscarVertice(idDestino);
+   127	
+   128	        if (origem == null) {
+   129	            throw new IllegalArgumentException("O vértice de origem não existe: " + idOrigem);
    130	        }
-   131	    }
-   132	
-   133	    /** Remove a ligação (aresta/arco) identificada. */
-   134	    public void removerAresta(String idAresta) {
-   135	        Aresta aresta = buscarAresta(idAresta);
-   136	        if (aresta == null) {
-   137	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
-   138	        }
+   131	        if (destino == null) {
+   132	            throw new IllegalArgumentException("O vértice de destino não existe: " + idDestino);
+   133	        }
+   134	
+   135	        Aresta aresta = new Aresta(idAresta, origem, destino, peso);
+   136	        arestas.add(aresta);
+   137	
+   138	        origem.adicionarAresta(aresta);
    139	
-   140	        aresta.getOrigem().removerAresta(aresta);
-   141	        if (!dirigido && !aresta.isLaco()) {
-   142	            aresta.getDestino().removerAresta(aresta);
-   143	        }
-   144	
-   145	        arestas.remove(aresta);
-   146	    }
-   147	
-   148	    /** Remove o vértice e, por consequência, todas as suas ligações. */
-   149	    public void removerVertice(String idVertice) {
-   150	        Vertice vertice = buscarVertice(idVertice);
-   151	        if (vertice == null) {
-   152	            throw new IllegalArgumentException("Vértice não encontrado: " + idVertice);
-   153	        }
-   154	
-   155	        List<String> paraRemover = new ArrayList<>();
-   156	        for (Aresta a : arestas) {
-   157	            if (a.incideEm(vertice)) {
-   158	                paraRemover.add(a.getId());
-   159	            }
-   160	        }
-   161	        for (String idAresta : paraRemover) {
-   162	            removerAresta(idAresta);
-   163	        }
-   164	
-   165	        vertices.remove(vertice);
-   166	    }
-   167	
-   168	    // ============================================================
-   169	    // CONSULTAS
-   170	    // ============================================================
-   171	
-   172	    /** Verifica se v e w são vizinhos (adjacentes). */
-   173	    public boolean saoAdjacentes(String idV, String idW) {
-   174	        Vertice v = buscarVertice(idV);
-   175	        Vertice w = buscarVertice(idW);
-   176	
-   177	        if (v == null || w == null) {
-   178	            return false;
-   179	        }
-   180	
-   181	        for (Aresta a : v.getAdjacencias()) {
-   182	            if (dirigido) {
-   183	                if (a.getOrigem() == v && a.getDestino() == w) {
-   184	                    return true;
-   185	                }
-   186	            } else {
-   187	                if (a.incideEm(v) && a.incideEm(w)) {
-   188	                    return true;
-   189	                }
-   190	            }
-   191	        }
-   192	        return false;
-   193	    }
+   140	        // Em grafo não dirigido a aresta incide nas duas extremidades.
+   141	        // No laço a aresta é registrada uma única vez para não duplicar.
+   142	        if (!dirigido && !aresta.isLaco()) {
+   143	            destino.adicionarAresta(aresta);
+   144	        }
+   145	    }
+   146	
+   147	    /** Remove a ligação (aresta/arco) identificada. */
+   148	    public void removerAresta(String idAresta) {
+   149	        Aresta aresta = buscarAresta(idAresta);
+   150	        if (aresta == null) {
+   151	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
+   152	        }
+   153	
+   154	        aresta.getOrigem().removerAresta(aresta);
+   155	        if (!dirigido && !aresta.isLaco()) {
+   156	            aresta.getDestino().removerAresta(aresta);
+   157	        }
+   158	
+   159	        arestas.remove(aresta);
+   160	    }
+   161	
+   162	    /** Remove o vértice e, por consequência, todas as suas ligações. */
+   163	    public void removerVertice(String idVertice) {
+   164	        Vertice vertice = buscarVertice(idVertice);
+   165	        if (vertice == null) {
+   166	            throw new IllegalArgumentException("Vértice não encontrado: " + idVertice);
+   167	        }
+   168	
+   169	        List<String> paraRemover = new ArrayList<>();
+   170	        for (Aresta a : arestas) {
+   171	            if (a.incideEm(vertice)) {
+   172	                paraRemover.add(a.getId());
+   173	            }
+   174	        }
+   175	        for (String idAresta : paraRemover) {
+   176	            removerAresta(idAresta);
+   177	        }
+   178	
+   179	        vertices.remove(vertice);
+   180	    }
+   181	
+   182	    // ============================================================
+   183	    // CONSULTAS
+   184	    // ============================================================
+   185	
+   186	    /** Verifica se v e w são vizinhos (adjacentes). */
+   187	    public boolean saoAdjacentes(String idV, String idW) {
+   188	        Vertice v = buscarVertice(idV);
+   189	        Vertice w = buscarVertice(idW);
+   190	
+   191	        if (v == null || w == null) {
+   192	            return false;
+   193	        }
    194	
-   195	    /** Retorna o valor (peso) associado a uma aresta/arco. */
-   196	    public double retornarValorAresta(String idAresta) {
-   197	        Aresta aresta = buscarAresta(idAresta);
-   198	        if (aresta == null) {
-   199	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
-   200	        }
-   201	        return aresta.getPeso();
-   202	    }
-   203	
-   204	    /** Retorna, em texto, as extremidades de uma aresta/arco. */
-   205	    public String formatarExtremidades(String idAresta) {
-   206	        Aresta aresta = buscarAresta(idAresta);
-   207	        if (aresta == null) {
-   208	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
-   209	        }
-   210	
-   211	        String texto = "Aresta/arco: " + aresta.getId() + "\n";
-   212	
-   213	        if (dirigido) {
-   214	            texto += "Extremidade inicial (cauda): " + aresta.getOrigem().getId() + "\n";
-   215	            texto += "Extremidade final (cabeça): " + aresta.getDestino().getId() + "\n";
-   216	        } else {
-   217	            texto += "Extremidade 1: " + aresta.getOrigem().getId() + "\n";
-   218	            texto += "Extremidade 2: " + aresta.getDestino().getId() + "\n";
-   219	        }
-   220	
-   221	        return texto + "Peso: " + aresta.getPesoFormatado();
-   222	    }
-   223	
-   224	    // ============================================================
-   225	    // LISTA DE ADJACÊNCIA EM TEXTO
-   226	    // ============================================================
-   227	
-   228	    public String formatarGrafo() {
-   229	        String texto = "========== LISTA DE ADJACÊNCIA ==========\n";
-   230	        texto += dirigido ? "Tipo: GRAFO DIRIGIDO\n" : "Tipo: GRAFO NÃO DIRIGIDO\n";
-   231	
-   232	        if (vertices.isEmpty()) {
-   233	            return texto + "O grafo não possui vértices.";
-   234	        }
-   235	
-   236	        for (Vertice v : vertices) {
-   237	            texto += v.getId() + " -> ";
-   238	
-   239	            if (v.getAdjacencias().isEmpty()) {
-   240	                texto += "(isolado)\n";
-   241	                continue;
-   242	            }
-   243	
-   244	            for (Aresta a : v.getAdjacencias()) {
-   245	                String ligacao = dirigido ? " -> " : " -- ";
-   246	                texto += "[" + a.getId() + ligacao + a.oposto(v).getId()
-   247	                        + ", peso=" + a.getPesoFormatado() + "] ";
-   248	            }
-   249	            texto += "\n";
-   250	        }
-   251	        return texto.trim();
-   252	    }
-   253	
-   254	    // ============================================================
-   255	    // ALGORITMO DE PRIM: ÁRVORE GERADORA MÍNIMA
-   256	    // ============================================================
+   195	        for (Aresta a : v.getAdjacencias()) {
+   196	            if (dirigido) {
+   197	                if (a.getOrigem() == v && a.getDestino() == w) {
+   198	                    return true;
+   199	                }
+   200	            } else {
+   201	                if (a.incideEm(v) && a.incideEm(w)) {
+   202	                    return true;
+   203	                }
+   204	            }
+   205	        }
+   206	        return false;
+   207	    }
+   208	
+   209	    /** Retorna o valor (peso) associado a uma aresta/arco. */
+   210	    public double retornarValorAresta(String idAresta) {
+   211	        Aresta aresta = buscarAresta(idAresta);
+   212	        if (aresta == null) {
+   213	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
+   214	        }
+   215	        return aresta.getPeso();
+   216	    }
+   217	
+   218	    /** Retorna, em texto, as extremidades de uma aresta/arco. */
+   219	    public String formatarExtremidades(String idAresta) {
+   220	        Aresta aresta = buscarAresta(idAresta);
+   221	        if (aresta == null) {
+   222	            throw new IllegalArgumentException("Aresta/arco não encontrado: " + idAresta);
+   223	        }
+   224	
+   225	        String texto = "Aresta/arco: " + aresta.getId() + "\n";
+   226	
+   227	        if (dirigido) {
+   228	            texto += "Extremidade inicial (cauda): " + aresta.getOrigem().getId() + "\n";
+   229	            texto += "Extremidade final (cabeça): " + aresta.getDestino().getId() + "\n";
+   230	        } else {
+   231	            texto += "Extremidade 1: " + aresta.getOrigem().getId() + "\n";
+   232	            texto += "Extremidade 2: " + aresta.getDestino().getId() + "\n";
+   233	        }
+   234	
+   235	        return texto + "Peso: " + aresta.getPesoFormatado();
+   236	    }
+   237	
+   238	    // ============================================================
+   239	    // LISTA DE ADJACÊNCIA EM TEXTO
+   240	    // ============================================================
+   241	
+   242	    public String formatarGrafo() {
+   243	        String texto = "========== LISTA DE ADJACÊNCIA ==========\n";
+   244	        texto += dirigido ? "Tipo: GRAFO DIRIGIDO\n" : "Tipo: GRAFO NÃO DIRIGIDO\n";
+   245	
+   246	        if (vertices.isEmpty()) {
+   247	            return texto + "O grafo não possui vértices.";
+   248	        }
+   249	
+   250	        for (Vertice v : vertices) {
+   251	            texto += v.getId() + " -> ";
+   252	
+   253	            if (v.getAdjacencias().isEmpty()) {
+   254	                texto += "(isolado)\n";
+   255	                continue;
+   256	            }
    257	
-   258	    /**
-   259	     * Algoritmo de Prim a partir de um vértice inicial.
-   260	     *
-   261	     * Prim é definido para grafo não dirigido. Em grafo dirigido o
-   262	     * algoritmo é aplicado sobre o grafo subjacente, ignorando o sentido.
-   263	     * Se o grafo for desconexo, o resultado é uma floresta geradora
-   264	     * mínima, com uma árvore por componente.
-   265	     */
-   266	    public ResultadoAGM prim(String idInicial) {
-   267	        if (vertices.isEmpty()) {
-   268	            throw new IllegalStateException("O grafo não possui vértices.");
-   269	        }
-   270	
-   271	        Vertice inicial = (idInicial == null) ? vertices.get(0) : buscarVertice(idInicial);
-   272	        if (inicial == null) {
-   273	            throw new IllegalArgumentException("Vértice inicial não existe: " + idInicial);
-   274	        }
-   275	
-   276	        Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
-   277	        Set<Vertice> visitados = new HashSet<>();
-   278	        List<Aresta> arvore = new ArrayList<>();
-   279	        double custo = 0.0;
-   280	        int componentes = 0;
-   281	
-   282	        // O vértice escolhido é a raiz da primeira árvore; os demais
-   283	        // servem de raiz apenas se o grafo for desconexo.
-   284	        List<Vertice> raizes = new ArrayList<>();
-   285	        raizes.add(inicial);
-   286	        for (Vertice v : vertices) {
-   287	            if (v != inicial) {
-   288	                raizes.add(v);
-   289	            }
-   290	        }
-   291	
-   292	        for (Vertice raiz : raizes) {
-   293	            if (visitados.contains(raiz)) {
-   294	                continue;
-   295	            }
-   296	            componentes++;
-   297	
-   298	            PriorityQueue<Aresta> fila = new PriorityQueue<>(
-   299	                    Comparator.comparingDouble(Aresta::getPeso).thenComparing(Aresta::getId));
-   300	
-   301	            expandir(raiz, visitados, incidencia, fila);
-   302	
-   303	            while (!fila.isEmpty()) {
-   304	                Aresta a = fila.poll();
-   305	
-   306	                Vertice fora = null;
-   307	                if (!visitados.contains(a.getOrigem())) {
-   308	                    fora = a.getOrigem();
-   309	                } else if (!visitados.contains(a.getDestino())) {
-   310	                    fora = a.getDestino();
-   311	                }
+   258	            for (Aresta a : v.getAdjacencias()) {
+   259	                String ligacao = dirigido ? " -> " : " -- ";
+   260	                texto += "[" + a.getId() + ligacao + a.oposto(v).getId()
+   261	                        + ", peso=" + a.getPesoFormatado() + "] ";
+   262	            }
+   263	            texto += "\n";
+   264	        }
+   265	        return texto.trim();
+   266	    }
+   267	
+   268	    // ============================================================
+   269	    // ALGORITMO DE PRIM: ÁRVORE GERADORA MÍNIMA
+   270	    // ============================================================
+   271	
+   272	    /**
+   273	     * Algoritmo de Prim sobre o grafo.
+   274	     *
+   275	     * A árvore geradora mínima é propriedade do grafo: o custo total é o
+   276	     * mesmo independente do vértice por onde a construção começa, por isso
+   277	     * o ponto de partida não é parâmetro. A árvore cresce a partir do
+   278	     * primeiro vértice da lista.
+   279	     *
+   280	     * Prim é definido para grafo não dirigido. Em grafo dirigido o
+   281	     * algoritmo é aplicado sobre o grafo subjacente, ignorando o sentido.
+   282	     * Se o grafo for desconexo, o resultado é uma floresta geradora
+   283	     * mínima, com uma árvore por componente.
+   284	     */
+   285	    public ResultadoAGM prim() {
+   286	        if (vertices.isEmpty()) {
+   287	            throw new IllegalStateException("O grafo não possui vértices.");
+   288	        }
+   289	
+   290	        Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
+   291	        Set<Vertice> visitados = new HashSet<>();
+   292	        List<Aresta> arvore = new ArrayList<>();
+   293	        double custo = 0.0;
+   294	        int componentes = 0;
+   295	
+   296	        // O primeiro vértice é a raiz da árvore. Os demais só viram raiz de
+   297	        // uma nova árvore se o grafo for desconexo e ainda houver vértice
+   298	        // fora de tudo o que já foi alcançado.
+   299	        for (Vertice raiz : vertices) {
+   300	            if (visitados.contains(raiz)) {
+   301	                continue;
+   302	            }
+   303	            componentes++;
+   304	
+   305	            PriorityQueue<Aresta> fila = new PriorityQueue<>(
+   306	                    Comparator.comparingDouble(Aresta::getPeso).thenComparing(Aresta::getId));
+   307	
+   308	            expandir(raiz, visitados, incidencia, fila);
+   309	
+   310	            while (!fila.isEmpty()) {
+   311	                Aresta a = fila.poll();
    312	
-   313	                // Aresta com as duas extremidades já na árvore formaria ciclo.
-   314	                if (fora == null) {
-   315	                    continue;
-   316	                }
-   317	
-   318	                arvore.add(a);
-   319	                custo += a.getPeso();
-   320	                expandir(fora, visitados, incidencia, fila);
-   321	            }
-   322	        }
-   323	
-   324	        return new ResultadoAGM(inicial, arvore, custo, componentes);
-   325	    }
-   326	
-   327	    /** Marca o vértice como pertencente à árvore e enfileira suas arestas candidatas. */
-   328	    private void expandir(Vertice v, Set<Vertice> visitados,
-   329	                          Map<Vertice, List<Aresta>> incidencia,
-   330	                          PriorityQueue<Aresta> fila) {
-   331	        visitados.add(v);
-   332	        for (Aresta a : incidencia.get(v)) {
-   333	            if (!visitados.contains(a.oposto(v))) {
-   334	                fila.add(a);
-   335	            }
-   336	        }
-   337	    }
-   338	
-   339	    // ============================================================
-   340	    // BUSCA EM PROFUNDIDADE GUIADA
-   341	    // ============================================================
-   342	
-   343	    /**
-   344	     * Busca em profundidade com vértice de saída e de chegada.
-   345	     * A busca é interrompida assim que o vértice de chegada é alcançado.
-   346	     * Em grafo dirigido o sentido dos arcos é respeitado.
-   347	     */
-   348	    public ResultadoBusca buscaEmProfundidade(String idOrigem, String idDestino) {
-   349	        Vertice origem = buscarVertice(idOrigem);
-   350	        Vertice destino = buscarVertice(idDestino);
-   351	
-   352	        if (origem == null) {
-   353	            throw new IllegalArgumentException("Vértice de saída não existe: " + idOrigem);
-   354	        }
-   355	        if (destino == null) {
-   356	            throw new IllegalArgumentException("Vértice de chegada não existe: " + idDestino);
-   357	        }
+   313	                Vertice fora = null;
+   314	                if (!visitados.contains(a.getOrigem())) {
+   315	                    fora = a.getOrigem();
+   316	                } else if (!visitados.contains(a.getDestino())) {
+   317	                    fora = a.getDestino();
+   318	                }
+   319	
+   320	                // Aresta com as duas extremidades já na árvore formaria ciclo.
+   321	                if (fora == null) {
+   322	                    continue;
+   323	                }
+   324	
+   325	                arvore.add(a);
+   326	                custo += a.getPeso();
+   327	                expandir(fora, visitados, incidencia, fila);
+   328	            }
+   329	        }
+   330	
+   331	        return new ResultadoAGM(arvore, custo, componentes);
+   332	    }
+   333	
+   334	    /** Marca o vértice como pertencente à árvore e enfileira suas arestas candidatas. */
+   335	    private void expandir(Vertice v, Set<Vertice> visitados,
+   336	                          Map<Vertice, List<Aresta>> incidencia,
+   337	                          PriorityQueue<Aresta> fila) {
+   338	        visitados.add(v);
+   339	        for (Aresta a : incidencia.get(v)) {
+   340	            if (!visitados.contains(a.oposto(v))) {
+   341	                fila.add(a);
+   342	            }
+   343	        }
+   344	    }
+   345	
+   346	    // ============================================================
+   347	    // BUSCA EM PROFUNDIDADE GUIADA
+   348	    // ============================================================
+   349	
+   350	    /**
+   351	     * Busca em profundidade com vértice de saída e de chegada.
+   352	     * A busca é interrompida assim que o vértice de chegada é alcançado.
+   353	     * Em grafo dirigido o sentido dos arcos é respeitado.
+   354	     */
+   355	    public ResultadoBusca buscaEmProfundidade(String idOrigem, String idDestino) {
+   356	        Vertice origem = buscarVertice(idOrigem);
+   357	        Vertice destino = buscarVertice(idDestino);
    358	
-   359	        Set<Vertice> visitados = new HashSet<>();
-   360	        List<Vertice> ordem = new ArrayList<>();
-   361	        List<Aresta> arvore = new ArrayList<>();
-   362	        Map<Vertice, Aresta> chegada = new HashMap<>();
-   363	
-   364	        boolean encontrou = explorar(origem, destino, visitados, ordem, arvore, chegada);
+   359	        if (origem == null) {
+   360	            throw new IllegalArgumentException("Vértice de saída não existe: " + idOrigem);
+   361	        }
+   362	        if (destino == null) {
+   363	            throw new IllegalArgumentException("Vértice de chegada não existe: " + idDestino);
+   364	        }
    365	
-   366	        List<Aresta> caminhoArestas = new ArrayList<>();
-   367	        List<Vertice> caminhoVertices = new ArrayList<>();
-   368	        double custoCaminho = 0.0;
-   369	
-   370	        if (encontrou) {
-   371	            Vertice atual = destino;
-   372	            caminhoVertices.add(atual);
-   373	            while (chegada.containsKey(atual)) {
-   374	                Aresta a = chegada.get(atual);
-   375	                caminhoArestas.add(0, a);
-   376	                custoCaminho += a.getPeso();
-   377	                atual = a.oposto(atual);
-   378	                caminhoVertices.add(0, atual);
-   379	            }
-   380	        }
-   381	
-   382	        return new ResultadoBusca(origem, destino, encontrou, ordem, arvore,
-   383	                caminhoVertices, caminhoArestas, custoCaminho);
-   384	    }
-   385	
-   386	    /**
-   387	     * Percurso recursivo em profundidade sobre a lista de adjacência.
-   388	     * Visita o vértice atual, e para cada aresta ainda não explorada desce
-   389	     * no vizinho não visitado. Retorna verdadeiro assim que alcança o
-   390	     * destino, o que interrompe a busca.
-   391	     *
-   392	     * Em grafo dirigido a lista de adjacência já contém apenas os arcos que
-   393	     * saem do vértice, então o sentido é respeitado sem tratamento extra.
-   394	     */
-   395	    private boolean explorar(Vertice atual, Vertice destino,
-   396	                             Set<Vertice> visitados, List<Vertice> ordem,
-   397	                             List<Aresta> arvore, Map<Vertice, Aresta> chegada) {
-   398	
-   399	        visitados.add(atual);
-   400	        ordem.add(atual);
-   401	
-   402	        if (atual == destino) {
-   403	            return true;
-   404	        }
+   366	        Set<Vertice> visitados = new HashSet<>();
+   367	        List<Vertice> ordem = new ArrayList<>();
+   368	        List<Aresta> arvore = new ArrayList<>();
+   369	        Map<Vertice, Aresta> chegada = new HashMap<>();
+   370	
+   371	        boolean encontrou = explorar(origem, destino, visitados, ordem, arvore, chegada);
+   372	
+   373	        List<Aresta> caminhoArestas = new ArrayList<>();
+   374	        List<Vertice> caminhoVertices = new ArrayList<>();
+   375	        double custoCaminho = 0.0;
+   376	
+   377	        if (encontrou) {
+   378	            Vertice atual = destino;
+   379	            caminhoVertices.add(atual);
+   380	            while (chegada.containsKey(atual)) {
+   381	                Aresta a = chegada.get(atual);
+   382	                caminhoArestas.add(0, a);
+   383	                custoCaminho += a.getPeso();
+   384	                atual = a.oposto(atual);
+   385	                caminhoVertices.add(0, atual);
+   386	            }
+   387	        }
+   388	
+   389	        return new ResultadoBusca(origem, destino, encontrou, ordem, arvore,
+   390	                caminhoVertices, caminhoArestas, custoCaminho);
+   391	    }
+   392	
+   393	    /**
+   394	     * Percurso recursivo em profundidade sobre a lista de adjacência.
+   395	     * Visita o vértice atual, e para cada aresta ainda não explorada desce
+   396	     * no vizinho não visitado. Retorna verdadeiro assim que alcança o
+   397	     * destino, o que interrompe a busca.
+   398	     *
+   399	     * Em grafo dirigido a lista de adjacência já contém apenas os arcos que
+   400	     * saem do vértice, então o sentido é respeitado sem tratamento extra.
+   401	     */
+   402	    private boolean explorar(Vertice atual, Vertice destino,
+   403	                             Set<Vertice> visitados, List<Vertice> ordem,
+   404	                             List<Aresta> arvore, Map<Vertice, Aresta> chegada) {
    405	
-   406	        for (Aresta a : atual.getAdjacencias()) {
-   407	            Vertice proximo = a.oposto(atual);
+   406	        visitados.add(atual);
+   407	        ordem.add(atual);
    408	
-   409	            if (visitados.contains(proximo)) {
-   410	                continue;
-   411	            }
+   409	        if (atual == destino) {
+   410	            return true;
+   411	        }
    412	
-   413	            // Aresta da árvore: foi por ela que o vizinho foi descoberto.
-   414	            arvore.add(a);
-   415	            chegada.put(proximo, a);
-   416	
-   417	            if (explorar(proximo, destino, visitados, ordem, arvore, chegada)) {
-   418	                return true;
-   419	            }
-   420	        }
-   421	
-   422	        return false;
-   423	    }
-   424	
-   425	    // ============================================================
-   426	    // ALGORITMO DE ROY: COMPONENTES CONEXAS / FORTEMENTE CONEXAS
-   427	    // ============================================================
+   413	        for (Aresta a : atual.getAdjacencias()) {
+   414	            Vertice proximo = a.oposto(atual);
+   415	
+   416	            if (visitados.contains(proximo)) {
+   417	                continue;
+   418	            }
+   419	
+   420	            // Aresta da árvore: foi por ela que o vizinho foi descoberto.
+   421	            arvore.add(a);
+   422	            chegada.put(proximo, a);
+   423	
+   424	            if (explorar(proximo, destino, visitados, ordem, arvore, chegada)) {
+   425	                return true;
+   426	            }
+   427	        }
    428	
-   429	    /**
-   430	     * Matriz de alcançabilidade (fecho transitivo) pelo algoritmo de Roy,
-   431	     * também conhecido como Roy-Warshall, aplicado sobre a matriz booleana
-   432	     * de adjacência.
-   433	     */
-   434	    public boolean[][] matrizAlcancabilidade() {
-   435	        int n = vertices.size();
-   436	        boolean[][] r = new boolean[n][n];
-   437	
-   438	        // Todo vértice alcança a si mesmo.
-   439	        for (int i = 0; i < n; i++) {
-   440	            r[i][i] = true;
-   441	        }
-   442	
-   443	        // A posição do vértice na lista já é o seu índice na matriz.
-   444	        for (Aresta a : arestas) {
-   445	            int i = vertices.indexOf(a.getOrigem());
-   446	            int j = vertices.indexOf(a.getDestino());
-   447	            r[i][j] = true;
-   448	            if (!dirigido) {
-   449	                r[j][i] = true;
-   450	            }
-   451	        }
-   452	
-   453	        // Fecho transitivo: se i alcança k e k alcança j, então i alcança j.
-   454	        for (int k = 0; k < n; k++) {
-   455	            for (int i = 0; i < n; i++) {
-   456	                if (!r[i][k]) {
-   457	                    continue;
-   458	                }
-   459	                for (int j = 0; j < n; j++) {
-   460	                    if (r[k][j]) {
-   461	                        r[i][j] = true;
-   462	                    }
-   463	                }
-   464	            }
+   429	        return false;
+   430	    }
+   431	
+   432	    // ============================================================
+   433	    // ALGORITMO DSATUR: COLORAÇÃO DE VÉRTICES
+   434	    // ============================================================
+   435	
+   436	    /**
+   437	     Algoritmo DSATUR de coloração de vértices.
+   438	
+   439	     Colore os vértices de forma que nenhuma aresta ligue dois vértices da
+   440	     mesma cor, tentando usar o menor número possível de cores. A cada passo:
+   441	
+   442	     1. escolhe o vértice ainda não colorido com maior grau de saturação, que
+   443	        é o número de cores distintas já presentes entre os seus vizinhos;
+   444	     2. desempata pelo maior grau dentro do subgrafo ainda não colorido;
+   445	     3. atribui a menor cor que nenhum vizinho esteja usando.
+   446	
+   447	     DSATUR é heurística: não garante o número cromático mínimo em todo grafo,
+   448	     mas é exato para grafos bipartidos e costuma acertar em grafos pequenos.
+   449	
+   450	     A coloração ignora o sentido dos arcos, porque dois vértices ligados
+   451	     precisam de cores diferentes independentemente da direção. Laços são
+   452	     ignorados, já que um vértice não pode ter cor diferente de si mesmo.
+   453	     */
+   454	    public ResultadoColoracao dsatur() {
+   455	        if (vertices.isEmpty()) {
+   456	            throw new IllegalStateException("O grafo não possui vértices.");
+   457	        }
+   458	
+   459	        Map<Vertice, List<Aresta>> incidencia = incidenciaSemSentido();
+   460	        Map<Vertice, Integer> cores = new LinkedHashMap<>();
+   461	
+   462	        while (cores.size() < vertices.size()) {
+   463	            Vertice escolhido = maisSaturado(incidencia, cores);
+   464	            cores.put(escolhido, menorCorLivre(escolhido, incidencia, cores));
    465	        }
-   466	        return r;
-   467	    }
-   468	
-   469	    /**
-   470	     * Componentes conexas (grafo não dirigido) ou fortemente conexas
-   471	     * (grafo dirigido): v e w pertencem ao mesmo conjunto quando
-   472	     * v alcança w e w alcança v na matriz de alcançabilidade.
-   473	     */
-   474	    public List<List<Vertice>> royComponentes() {
-   475	        boolean[][] r = matrizAlcancabilidade();
-   476	        int n = vertices.size();
-   477	        boolean[] agrupado = new boolean[n];
-   478	        List<List<Vertice>> componentes = new ArrayList<>();
-   479	
-   480	        for (int i = 0; i < n; i++) {
-   481	            if (agrupado[i]) {
-   482	                continue;
-   483	            }
-   484	            List<Vertice> componente = new ArrayList<>();
-   485	            for (int j = 0; j < n; j++) {
-   486	                if (!agrupado[j] && r[i][j] && r[j][i]) {
-   487	                    agrupado[j] = true;
-   488	                    componente.add(vertices.get(j));
-   489	                }
-   490	            }
-   491	            componentes.add(componente);
-   492	        }
-   493	        return componentes;
-   494	    }
-   495	
-   496	    // ============================================================
-   497	    // RESULTADOS DOS ALGORITMOS
-   498	    // ============================================================
-   499	
-   500	    /** Resultado do algoritmo de Prim. */
-   501	    public static class ResultadoAGM {
+   466	
+   467	        int total = 0;
+   468	        for (int cor : cores.values()) {
+   469	            total = Math.max(total, cor + 1);
+   470	        }
+   471	
+   472	        return new ResultadoColoracao(cores, total);
+   473	    }
+   474	
+   475	    /** Vértice não colorido com maior saturação, desempatando pelo maior grau. */
+   476	    private Vertice maisSaturado(Map<Vertice, List<Aresta>> incidencia, Map<Vertice, Integer> cores) {
+   477	        Vertice melhor = null;
+   478	        int melhorSaturacao = -1;
+   479	        int melhorGrau = -1;
+   480	
+   481	        for (Vertice v : vertices) {
+   482	            if (cores.containsKey(v)) {
+   483	                continue;
+   484	            }
+   485	
+   486	            int saturacao = saturacao(v, incidencia, cores);
+   487	            int grau = grauEntreNaoColoridos(v, incidencia, cores);
+   488	
+   489	            if (saturacao > melhorSaturacao
+   490	                    || (saturacao == melhorSaturacao && grau > melhorGrau)) {
+   491	                melhor = v;
+   492	                melhorSaturacao = saturacao;
+   493	                melhorGrau = grau;
+   494	            }
+   495	        }
+   496	        return melhor;
+   497	    }
+   498	
+   499	    /** Grau de saturação: quantas cores distintas já aparecem entre os vizinhos. */
+   500	    private int saturacao(Vertice v, Map<Vertice, List<Aresta>> incidencia, Map<Vertice, Integer> cores) {
+   501	        List<Integer> distintas = new ArrayList<>();
    502	
-   503	        private final Vertice inicial;
-   504	        private final List<Aresta> arestas;
-   505	        private final double custo;
-   506	        private final int componentes;
-   507	
-   508	        public ResultadoAGM(Vertice inicial, List<Aresta> arestas, double custo, int componentes) {
-   509	            this.inicial = inicial;
-   510	            this.arestas = arestas;
-   511	            this.custo = custo;
-   512	            this.componentes = componentes;
-   513	        }
+   503	        for (Aresta a : incidencia.get(v)) {
+   504	            Vertice vizinho = a.oposto(v);
+   505	            if (vizinho == v || !cores.containsKey(vizinho)) {
+   506	                continue;
+   507	            }
+   508	            if (!distintas.contains(cores.get(vizinho))) {
+   509	                distintas.add(cores.get(vizinho));
+   510	            }
+   511	        }
+   512	        return distintas.size();
+   513	    }
    514	
-   515	        public Vertice getInicial() {
-   516	            return inicial;
-   517	        }
-   518	
-   519	        public List<Aresta> getArestas() {
-   520	            return arestas;
-   521	        }
-   522	
-   523	        public double getCusto() {
-   524	            return custo;
-   525	        }
-   526	
-   527	        public int getComponentes() {
-   528	            return componentes;
-   529	        }
-   530	
-   531	        /** Verdadeiro quando o grafo é desconexo e o resultado é uma floresta. */
-   532	        public boolean isFloresta() {
-   533	            return componentes > 1;
-   534	        }
-   535	    }
-   536	
-   537	    /** Resultado da busca em profundidade guiada. */
-   538	    public static class ResultadoBusca {
+   515	    /** Grau do vértice contando apenas os vizinhos ainda sem cor. */
+   516	    private int grauEntreNaoColoridos(Vertice v, Map<Vertice, List<Aresta>> incidencia,
+   517	                                      Map<Vertice, Integer> cores) {
+   518	        int grau = 0;
+   519	        for (Aresta a : incidencia.get(v)) {
+   520	            Vertice vizinho = a.oposto(v);
+   521	            if (vizinho != v && !cores.containsKey(vizinho)) {
+   522	                grau++;
+   523	            }
+   524	        }
+   525	        return grau;
+   526	    }
+   527	
+   528	    /** Menor número de cor que nenhum vizinho já colorido esteja usando. */
+   529	    private int menorCorLivre(Vertice v, Map<Vertice, List<Aresta>> incidencia,
+   530	                              Map<Vertice, Integer> cores) {
+   531	        List<Integer> usadas = new ArrayList<>();
+   532	
+   533	        for (Aresta a : incidencia.get(v)) {
+   534	            Vertice vizinho = a.oposto(v);
+   535	            if (vizinho != v && cores.containsKey(vizinho)) {
+   536	                usadas.add(cores.get(vizinho));
+   537	            }
+   538	        }
    539	
-   540	        private final Vertice origem;
-   541	        private final Vertice destino;
-   542	        private final boolean encontrou;
-   543	        private final List<Vertice> ordemVisita;
-   544	        private final List<Aresta> arestasArvore;
-   545	        private final List<Vertice> caminhoVertices;
-   546	        private final List<Aresta> caminhoArestas;
-   547	        private final double custoCaminho;
-   548	
-   549	        public ResultadoBusca(Vertice origem, Vertice destino, boolean encontrou,
-   550	                              List<Vertice> ordemVisita, List<Aresta> arestasArvore,
-   551	                              List<Vertice> caminhoVertices, List<Aresta> caminhoArestas,
-   552	                              double custoCaminho) {
-   553	            this.origem = origem;
-   554	            this.destino = destino;
-   555	            this.encontrou = encontrou;
-   556	            this.ordemVisita = ordemVisita;
-   557	            this.arestasArvore = arestasArvore;
-   558	            this.caminhoVertices = caminhoVertices;
-   559	            this.caminhoArestas = caminhoArestas;
-   560	            this.custoCaminho = custoCaminho;
+   540	        int cor = 0;
+   541	        while (usadas.contains(cor)) {
+   542	            cor++;
+   543	        }
+   544	        return cor;
+   545	    }
+   546	
+   547	    /**
+   548	     Confere se a coloração é própria, isto é, se nenhuma aresta liga dois
+   549	     vértices da mesma cor. Laços são desconsiderados.
+   550	     */
+   551	    public boolean coloracaoValida(Map<Vertice, Integer> cores) {
+   552	        for (Aresta a : arestas) {
+   553	            if (a.isLaco()) {
+   554	                continue;
+   555	            }
+   556	            Integer corOrigem = cores.get(a.getOrigem());
+   557	            Integer corDestino = cores.get(a.getDestino());
+   558	            if (corOrigem == null || corDestino == null || corOrigem.equals(corDestino)) {
+   559	                return false;
+   560	            }
    561	        }
-   562	
-   563	        public Vertice getOrigem() {
-   564	            return origem;
-   565	        }
-   566	
-   567	        public Vertice getDestino() {
-   568	            return destino;
-   569	        }
-   570	
-   571	        public boolean isEncontrou() {
-   572	            return encontrou;
-   573	        }
-   574	
-   575	        public List<Vertice> getOrdemVisita() {
-   576	            return ordemVisita;
-   577	        }
-   578	
-   579	        public List<Aresta> getArestasArvore() {
-   580	            return arestasArvore;
-   581	        }
-   582	
-   583	        public List<Vertice> getCaminhoVertices() {
-   584	            return caminhoVertices;
-   585	        }
-   586	
-   587	        public List<Aresta> getCaminhoArestas() {
-   588	            return caminhoArestas;
-   589	        }
-   590	
-   591	        public double getCustoCaminho() {
-   592	            return custoCaminho;
-   593	        }
-   594	    }
-   595	}
+   562	        return true;
+   563	    }
+   564	
+   565	    // ============================================================
+   566	    // ALGORITMO A*: CAMINHO MÍNIMO
+   567	    // ============================================================
+   568	
+   569	    /**
+   570	     Algoritmo A* entre dois vértices.
+   571	
+   572	     Cada vértice é avaliado por f(n) = g(n) + h(n), onde g(n) é o custo real
+   573	     já percorrido desde a origem, somando os pesos das arestas, e h(n) é a
+   574	     estimativa do que falta até o destino, calculada pela fórmula de
+   575	     Haversine sobre as coordenadas geográficas.
+   576	
+   577	     Como Haversine mede em linha reta, h(n) nunca superestima o que falta,
+   578	     ou seja, a heurística é admissível, e por isso o A* devolve o caminho de
+   579	     menor custo. Em grafo sem coordenadas h(n) vale zero e o algoritmo se
+   580	     comporta como o de Dijkstra.
+   581	
+   582	     Em grafo dirigido a lista de adjacência contém apenas os arcos que saem
+   583	     do vértice, então o sentido é respeitado.
+   584	     */
+   585	    public ResultadoCaminho aEstrela(String idOrigem, String idDestino) {
+   586	        Vertice origem = buscarVertice(idOrigem);
+   587	        Vertice destino = buscarVertice(idDestino);
+   588	
+   589	        if (origem == null) {
+   590	            throw new IllegalArgumentException("Vértice de origem não existe: " + idOrigem);
+   591	        }
+   592	        if (destino == null) {
+   593	            throw new IllegalArgumentException("Vértice de destino não existe: " + idDestino);
+   594	        }
+   595	
+   596	        Map<Vertice, Double> custoConhecido = new HashMap<>();
+   597	        Map<Vertice, Aresta> chegada = new HashMap<>();
+   598	
+   599	        // Lista fechada: vértices já resolvidos. Como eles entram aqui na
+   600	        // mesma ordem em que saem da fila, esta lista também é a ordem de
+   601	        // expansão mostrada na tela.
+   602	        List<Vertice> fechados = new ArrayList<>();
+   603	
+   604	        // Lista aberta: a fronteira, ordenada por f(n) = g(n) + h(n).
+   605	        PriorityQueue<NoAberto> abertos = new PriorityQueue<>(
+   606	                Comparator.comparingDouble((NoAberto n) -> n.f).thenComparing(n -> n.vertice.getId()));
+   607	
+   608	        custoConhecido.put(origem, 0.0);
+   609	        abertos.add(new NoAberto(origem, origem.distanciaHaversine(destino)));
+   610	
+   611	        boolean encontrou = false;
+   612	
+   613	        while (!abertos.isEmpty()) {
+   614	            Vertice atual = abertos.poll().vertice;
+   615	
+   616	            // O mesmo vértice pode ter sido enfileirado mais de uma vez com
+   617	            // estimativas diferentes; a entrada antiga é descartada.
+   618	            if (fechados.contains(atual)) {
+   619	                continue;
+   620	            }
+   621	            fechados.add(atual);
+   622	
+   623	            if (atual == destino) {
+   624	                encontrou = true;
+   625	                break;
+   626	            }
+   627	
+   628	            for (Aresta a : atual.getAdjacencias()) {
+   629	                Vertice vizinho = a.oposto(atual);
+   630	
+   631	                if (fechados.contains(vizinho)) {
+   632	                    continue;
+   633	                }
+   634	
+   635	                double novoCusto = custoConhecido.get(atual) + a.getPeso();
+   636	
+   637	                // Só vale a pena seguir por aqui se for mais barato que o
+   638	                // melhor caminho já conhecido até este vizinho.
+   639	                if (!custoConhecido.containsKey(vizinho) || novoCusto < custoConhecido.get(vizinho)) {
+   640	                    custoConhecido.put(vizinho, novoCusto);
+   641	                    chegada.put(vizinho, a);
+   642	                    abertos.add(new NoAberto(vizinho, novoCusto + vizinho.distanciaHaversine(destino)));
+   643	                }
+   644	            }
+   645	        }
+   646	
+   647	        List<Vertice> caminhoVertices = new ArrayList<>();
+   648	        List<Aresta> caminhoArestas = new ArrayList<>();
+   649	
+   650	        if (encontrou) {
+   651	            Vertice atual = destino;
+   652	            caminhoVertices.add(atual);
+   653	            while (chegada.containsKey(atual)) {
+   654	                Aresta a = chegada.get(atual);
+   655	                caminhoArestas.add(0, a);
+   656	                atual = a.oposto(atual);
+   657	                caminhoVertices.add(0, atual);
+   658	            }
+   659	        }
+   660	
+   661	        double custoTotal = encontrou ? custoConhecido.get(destino) : 0.0;
+   662	
+   663	        return new ResultadoCaminho(origem, destino, encontrou, caminhoVertices,
+   664	                caminhoArestas, custoTotal, fechados);
+   665	    }
+   666	
+   667	    /**
+   668	     Tabela h(n) de todos os vértices em relação ao destino informado, que é
+   669	     a estimativa em linha reta que o A* usa.
+   670	     */
+   671	    public Map<Vertice, Double> heuristicas(String idDestino) {
+   672	        Vertice destino = buscarVertice(idDestino);
+   673	        if (destino == null) {
+   674	            throw new IllegalArgumentException("Vértice de destino não existe: " + idDestino);
+   675	        }
+   676	
+   677	        Map<Vertice, Double> tabela = new LinkedHashMap<>();
+   678	        for (Vertice v : vertices) {
+   679	            tabela.put(v, v.distanciaHaversine(destino));
+   680	        }
+   681	        return tabela;
+   682	    }
+   683	
+   684	    /** Vértice na fila de abertos do A*, com a sua estimativa f. */
+   685	    private static class NoAberto {
+   686	
+   687	        private final Vertice vertice;
+   688	        private final double f;
+   689	
+   690	        NoAberto(Vertice vertice, double f) {
+   691	            this.vertice = vertice;
+   692	            this.f = f;
+   693	        }
+   694	    }
+   695	
+   696	    // ============================================================
+   697	    // ALGORITMO DE ROY: COMPONENTES CONEXAS / FORTEMENTE CONEXAS
+   698	    // ============================================================
+   699	
+   700	    /**
+   701	     * Matriz de alcançabilidade (fecho transitivo) pelo algoritmo de Roy,
+   702	     * também conhecido como Roy-Warshall, aplicado sobre a matriz booleana
+   703	     * de adjacência.
+   704	     */
+   705	    public boolean[][] matrizAlcancabilidade() {
+   706	        int n = vertices.size();
+   707	        boolean[][] r = new boolean[n][n];
+   708	
+   709	        // Todo vértice alcança a si mesmo.
+   710	        for (int i = 0; i < n; i++) {
+   711	            r[i][i] = true;
+   712	        }
+   713	
+   714	        // A posição do vértice na lista já é o seu índice na matriz.
+   715	        for (Aresta a : arestas) {
+   716	            int i = vertices.indexOf(a.getOrigem());
+   717	            int j = vertices.indexOf(a.getDestino());
+   718	            r[i][j] = true;
+   719	            if (!dirigido) {
+   720	                r[j][i] = true;
+   721	            }
+   722	        }
+   723	
+   724	        // Fecho transitivo: se i alcança k e k alcança j, então i alcança j.
+   725	        for (int k = 0; k < n; k++) {
+   726	            for (int i = 0; i < n; i++) {
+   727	                if (!r[i][k]) {
+   728	                    continue;
+   729	                }
+   730	                for (int j = 0; j < n; j++) {
+   731	                    if (r[k][j]) {
+   732	                        r[i][j] = true;
+   733	                    }
+   734	                }
+   735	            }
+   736	        }
+   737	        return r;
+   738	    }
+   739	
+   740	    /**
+   741	     * Componentes conexas (grafo não dirigido) ou fortemente conexas
+   742	     * (grafo dirigido): v e w pertencem ao mesmo conjunto quando
+   743	     * v alcança w e w alcança v na matriz de alcançabilidade.
+   744	     */
+   745	    public List<List<Vertice>> royComponentes() {
+   746	        boolean[][] r = matrizAlcancabilidade();
+   747	        int n = vertices.size();
+   748	        boolean[] agrupado = new boolean[n];
+   749	        List<List<Vertice>> componentes = new ArrayList<>();
+   750	
+   751	        for (int i = 0; i < n; i++) {
+   752	            if (agrupado[i]) {
+   753	                continue;
+   754	            }
+   755	            List<Vertice> componente = new ArrayList<>();
+   756	            for (int j = 0; j < n; j++) {
+   757	                if (!agrupado[j] && r[i][j] && r[j][i]) {
+   758	                    agrupado[j] = true;
+   759	                    componente.add(vertices.get(j));
+   760	                }
+   761	            }
+   762	            componentes.add(componente);
+   763	        }
+   764	        return componentes;
+   765	    }
+   766	
+   767	    // ============================================================
+   768	    // RESULTADOS DOS ALGORITMOS
+   769	    // ============================================================
+   770	
+   771	    /** Resultado do algoritmo de Prim. */
+   772	    public static class ResultadoAGM {
+   773	
+   774	        private final List<Aresta> arestas;
+   775	        private final double custo;
+   776	        private final int componentes;
+   777	
+   778	        public ResultadoAGM(List<Aresta> arestas, double custo, int componentes) {
+   779	            this.arestas = arestas;
+   780	            this.custo = custo;
+   781	            this.componentes = componentes;
+   782	        }
+   783	
+   784	        public List<Aresta> getArestas() {
+   785	            return arestas;
+   786	        }
+   787	
+   788	        public double getCusto() {
+   789	            return custo;
+   790	        }
+   791	
+   792	        public int getComponentes() {
+   793	            return componentes;
+   794	        }
+   795	
+   796	        /** Verdadeiro quando o grafo é desconexo e o resultado é uma floresta. */
+   797	        public boolean isFloresta() {
+   798	            return componentes > 1;
+   799	        }
+   800	    }
+   801	
+   802	    /** Resultado da busca em profundidade guiada. */
+   803	    public static class ResultadoBusca {
+   804	
+   805	        private final Vertice origem;
+   806	        private final Vertice destino;
+   807	        private final boolean encontrou;
+   808	        private final List<Vertice> ordemVisita;
+   809	        private final List<Aresta> arestasArvore;
+   810	        private final List<Vertice> caminhoVertices;
+   811	        private final List<Aresta> caminhoArestas;
+   812	        private final double custoCaminho;
+   813	
+   814	        public ResultadoBusca(Vertice origem, Vertice destino, boolean encontrou,
+   815	                              List<Vertice> ordemVisita, List<Aresta> arestasArvore,
+   816	                              List<Vertice> caminhoVertices, List<Aresta> caminhoArestas,
+   817	                              double custoCaminho) {
+   818	            this.origem = origem;
+   819	            this.destino = destino;
+   820	            this.encontrou = encontrou;
+   821	            this.ordemVisita = ordemVisita;
+   822	            this.arestasArvore = arestasArvore;
+   823	            this.caminhoVertices = caminhoVertices;
+   824	            this.caminhoArestas = caminhoArestas;
+   825	            this.custoCaminho = custoCaminho;
+   826	        }
+   827	
+   828	        public Vertice getOrigem() {
+   829	            return origem;
+   830	        }
+   831	
+   832	        public Vertice getDestino() {
+   833	            return destino;
+   834	        }
+   835	
+   836	        public boolean isEncontrou() {
+   837	            return encontrou;
+   838	        }
+   839	
+   840	        public List<Vertice> getOrdemVisita() {
+   841	            return ordemVisita;
+   842	        }
+   843	
+   844	        public List<Aresta> getArestasArvore() {
+   845	            return arestasArvore;
+   846	        }
+   847	
+   848	        public List<Vertice> getCaminhoVertices() {
+   849	            return caminhoVertices;
+   850	        }
+   851	
+   852	        public List<Aresta> getCaminhoArestas() {
+   853	            return caminhoArestas;
+   854	        }
+   855	
+   856	        public double getCustoCaminho() {
+   857	            return custoCaminho;
+   858	        }
+   859	    }
+   860	
+   861	    /** Resultado do algoritmo DSATUR. */
+   862	    public static class ResultadoColoracao {
+   863	
+   864	        private final Map<Vertice, Integer> cores;
+   865	        private final int totalCores;
+   866	
+   867	        public ResultadoColoracao(Map<Vertice, Integer> cores, int totalCores) {
+   868	            this.cores = cores;
+   869	            this.totalCores = totalCores;
+   870	        }
+   871	
+   872	        /** Número da cor de cada vértice, começando em zero. */
+   873	        public Map<Vertice, Integer> getCores() {
+   874	            return cores;
+   875	        }
+   876	
+   877	        public int getTotalCores() {
+   878	            return totalCores;
+   879	        }
+   880	    }
+   881	
+   882	    /** Resultado do algoritmo A*. */
+   883	    public static class ResultadoCaminho {
+   884	
+   885	        private final Vertice origem;
+   886	        private final Vertice destino;
+   887	        private final boolean encontrou;
+   888	        private final List<Vertice> caminhoVertices;
+   889	        private final List<Aresta> caminhoArestas;
+   890	        private final double custoTotal;
+   891	        private final List<Vertice> ordemExpansao;
+   892	
+   893	        public ResultadoCaminho(Vertice origem, Vertice destino, boolean encontrou,
+   894	                                List<Vertice> caminhoVertices, List<Aresta> caminhoArestas,
+   895	                                double custoTotal, List<Vertice> ordemExpansao) {
+   896	            this.origem = origem;
+   897	            this.destino = destino;
+   898	            this.encontrou = encontrou;
+   899	            this.caminhoVertices = caminhoVertices;
+   900	            this.caminhoArestas = caminhoArestas;
+   901	            this.custoTotal = custoTotal;
+   902	            this.ordemExpansao = ordemExpansao;
+   903	        }
+   904	
+   905	        public Vertice getOrigem() {
+   906	            return origem;
+   907	        }
+   908	
+   909	        public Vertice getDestino() {
+   910	            return destino;
+   911	        }
+   912	
+   913	        public boolean isEncontrou() {
+   914	            return encontrou;
+   915	        }
+   916	
+   917	        public List<Vertice> getCaminhoVertices() {
+   918	            return caminhoVertices;
+   919	        }
+   920	
+   921	        public List<Aresta> getCaminhoArestas() {
+   922	            return caminhoArestas;
+   923	        }
+   924	
+   925	        public double getCustoTotal() {
+   926	            return custoTotal;
+   927	        }
+   928	
+   929	        /** Vértices retirados da fila de abertos, na ordem em que foram expandidos. */
+   930	        public List<Vertice> getOrdemExpansao() {
+   931	            return ordemExpansao;
+   932	        }
+   933	    }
+   934	}
 
 
 ================================================================
-  PainelGrafo.java  (192 linhas)
+  ArquivoGrafo.java  (141 linhas)
+================================================================
+
+     1	import java.io.BufferedReader;
+     2	import java.io.BufferedWriter;
+     3	import java.io.File;
+     4	import java.io.FileInputStream;
+     5	import java.io.FileOutputStream;
+     6	import java.io.IOException;
+     7	import java.io.InputStreamReader;
+     8	import java.io.OutputStreamWriter;
+     9	import java.nio.charset.StandardCharsets;
+    10	
+    11	/**
+    12	 Leitura e gravação de grafo em arquivo de texto.
+    13	
+    14	 Formato, uma linha por item, campos separados por ponto e vírgula:
+    15	
+    16	 <pre>
+    17	 # linhas iniciadas por # são comentário e linhas em branco são ignoradas
+    18	 NAO_DIRIGIDO                           primeira linha útil: tipo do grafo
+    19	 V;Curitiba;-25.4133;-49.2679           vértice com coordenada geográfica
+    20	 V;Toledo                               vértice sem coordenada
+    21	 A;e1;Curitiba;Toledo;114               aresta: id, origem, destino, peso
+    22	 </pre>
+    23	
+    24	 A coordenada é opcional: vértice sem ela funciona normalmente, apenas não
+    25	 contribui com heurística para o A*.
+    26	 */
+    27	public class ArquivoGrafo {
+    28	
+    29	    private ArquivoGrafo() {
+    30	    }
+    31	
+    32	    /** Lê um grafo do arquivo. Indica a linha quando encontra erro de formato. */
+    33	    public static Grafo carregar(File arquivo) throws IOException {
+    34	        Grafo grafo = null;
+    35	        int numeroLinha = 0;
+    36	
+    37	        try (BufferedReader leitor = new BufferedReader(
+    38	                new InputStreamReader(new FileInputStream(arquivo), StandardCharsets.UTF_8))) {
+    39	
+    40	            String linha;
+    41	            while ((linha = leitor.readLine()) != null) {
+    42	                numeroLinha++;
+    43	                linha = linha.trim();
+    44	
+    45	                if (linha.isEmpty() || linha.startsWith("#")) {
+    46	                    continue;
+    47	                }
+    48	
+    49	                String[] campos = linha.split(";");
+    50	                for (int i = 0; i < campos.length; i++) {
+    51	                    campos[i] = campos[i].trim();
+    52	                }
+    53	
+    54	                try {
+    55	                    if (grafo == null) {
+    56	                        grafo = new Grafo(lerTipo(campos[0]));
+    57	                    } else {
+    58	                        lerItem(grafo, campos);
+    59	                    }
+    60	                } catch (RuntimeException ex) {
+    61	                    throw new IOException("Linha " + numeroLinha + ": " + ex.getMessage());
+    62	                }
+    63	            }
+    64	        }
+    65	
+    66	        if (grafo == null) {
+    67	            throw new IOException("Arquivo sem conteúdo: falta a linha com o tipo do grafo.");
+    68	        }
+    69	        return grafo;
+    70	    }
+    71	
+    72	    /** Grava o grafo no arquivo, no mesmo formato que o carregar espera. */
+    73	    public static void salvar(Grafo grafo, File arquivo) throws IOException {
+    74	        try (BufferedWriter escritor = new BufferedWriter(
+    75	                new OutputStreamWriter(new FileOutputStream(arquivo), StandardCharsets.UTF_8))) {
+    76	
+    77	            escritor.write("# Grafo gravado pelo programa");
+    78	            escritor.newLine();
+    79	            escritor.write(grafo.isDirigido() ? "DIRIGIDO" : "NAO_DIRIGIDO");
+    80	            escritor.newLine();
+    81	
+    82	            for (Vertice v : grafo.getVertices()) {
+    83	                if (v.temCoordenadas()) {
+    84	                    escritor.write("V;" + v.getId() + ";" + v.getLatitude() + ";" + v.getLongitude());
+    85	                } else {
+    86	                    escritor.write("V;" + v.getId());
+    87	                }
+    88	                escritor.newLine();
+    89	            }
+    90	
+    91	            for (Aresta a : grafo.getArestas()) {
+    92	                escritor.write("A;" + a.getId() + ";" + a.getOrigem().getId()
+    93	                        + ";" + a.getDestino().getId() + ";" + a.getPesoFormatado());
+    94	                escritor.newLine();
+    95	            }
+    96	        }
+    97	    }
+    98	
+    99	    private static boolean lerTipo(String texto) {
+   100	        if (texto.equalsIgnoreCase("DIRIGIDO")) {
+   101	            return true;
+   102	        }
+   103	        if (texto.equalsIgnoreCase("NAO_DIRIGIDO") || texto.equalsIgnoreCase("NÃO_DIRIGIDO")) {
+   104	            return false;
+   105	        }
+   106	        throw new IllegalArgumentException(
+   107	                "a primeira linha deve ser DIRIGIDO ou NAO_DIRIGIDO, e veio: " + texto);
+   108	    }
+   109	
+   110	    private static void lerItem(Grafo grafo, String[] campos) {
+   111	        if (campos[0].equalsIgnoreCase("V")) {
+   112	            if (campos.length == 2) {
+   113	                grafo.inserirVertice(campos[1]);
+   114	            } else if (campos.length == 4) {
+   115	                grafo.inserirVertice(campos[1], lerNumero(campos[2]), lerNumero(campos[3]));
+   116	            } else {
+   117	                throw new IllegalArgumentException(
+   118	                        "vértice deve ser V;id ou V;id;latitude;longitude");
+   119	            }
+   120	
+   121	        } else if (campos[0].equalsIgnoreCase("A")) {
+   122	            if (campos.length != 5) {
+   123	                throw new IllegalArgumentException(
+   124	                        "aresta/arco deve ser A;id;origem;destino;peso");
+   125	            }
+   126	            grafo.inserirAresta(campos[1], campos[2], campos[3], lerNumero(campos[4]));
+   127	
+   128	        } else {
+   129	            throw new IllegalArgumentException(
+   130	                    "a linha deve começar com V de vértice ou A de aresta, e veio: " + campos[0]);
+   131	        }
+   132	    }
+   133	
+   134	    private static double lerNumero(String texto) {
+   135	        try {
+   136	            return Double.parseDouble(texto.replace(',', '.'));
+   137	        } catch (NumberFormatException ex) {
+   138	            throw new IllegalArgumentException("valor numérico inválido: " + texto);
+   139	        }
+   140	    }
+   141	}
+
+
+================================================================
+  PainelGrafo.java  (208 linhas)
 ================================================================
 
      1	import javax.swing.JPanel;
@@ -928,391 +1479,579 @@ Codigo fonte completo - 21/09/2026
    186	        g2.setStroke(new BasicStroke(2f));
    187	        g2.drawOval(p.x - RAIO, p.y - RAIO, RAIO * 2, RAIO * 2);
    188	
-   189	        FontMetrics fm = g2.getFontMetrics();
-   190	        g2.drawString(v.getId(), p.x - fm.stringWidth(v.getId()) / 2, p.y + fm.getAscent() / 2 - 2);
-   191	    }
-   192	}
+   189	        // O identificador fica sempre abaixo do círculo, independente do
+   190	        // tamanho, para o desenho ficar uniforme e para nome longo, como de
+   191	        // cidade, não vazar por cima das arestas.
+   192	        FontMetrics fm = g2.getFontMetrics();
+   193	        escrever(g2, v.getId(), p.x, p.y + RAIO + fm.getAscent() + 2);
+   194	    }
+   195	
+   196	    /**
+   197	     Cor da classe de cor usada pela coloração. Acima do tamanho da paleta as
+   198	     cores são geradas pelo matiz, espaçadas pela razão áurea, o que mantém
+   199	     tons bem diferentes entre si por mais classes que apareçam.
+   200	     */
+   201	    public static Color corDaClasse(int indice) {
+   202	        if (indice < PALETA.length) {
+   203	            return PALETA[indice];
+   204	        }
+   205	        float matiz = (indice * 0.6180339f) % 1.0f;
+   206	        return Color.getHSBColor(matiz, 0.35f, 0.95f);
+   207	    }
+   208	}
 
 
 ================================================================
-  TelaPrincipal.java  (375 linhas)
+  TelaPrincipal.java  (547 linhas)
 ================================================================
 
      1	import javax.swing.BorderFactory;
-     2	import javax.swing.JFrame;
-     3	import javax.swing.JLabel;
-     4	import javax.swing.JMenu;
-     5	import javax.swing.JMenuBar;
-     6	import javax.swing.JMenuItem;
-     7	import javax.swing.JOptionPane;
-     8	import javax.swing.JPanel;
-     9	import javax.swing.JScrollPane;
-    10	import javax.swing.JTextArea;
-    11	import java.awt.BorderLayout;
-    12	import java.awt.Color;
-    13	import java.awt.Dimension;
-    14	import java.awt.Font;
-    15	import java.awt.event.ActionListener;
-    16	import java.util.HashMap;
-    17	import java.util.HashSet;
-    18	import java.util.List;
-    19	import java.util.Map;
-    20	import java.util.Set;
-    21	
-    22	/**
-    23	 * Janela principal: menu com todas as operações, desenho do grafo ativo
-    24	 * e área de texto com o resultado de cada operação.
-    25	 */
-    26	public class TelaPrincipal extends JFrame {
-    27	
-    28	    private Grafo grafo = new Grafo(false);
-    29	    private final PainelGrafo painel = new PainelGrafo(grafo);
-    30	    private final JTextArea saida = new JTextArea();
-    31	    private final JLabel status = new JLabel();
-    32	
-    33	    public TelaPrincipal() {
-    34	        super("Teoria dos Grafos - Kauan Rocha Dalfovo e Gustavo Odilon");
-    35	        setDefaultCloseOperation(EXIT_ON_CLOSE);
-    36	        setJMenuBar(montarMenu());
-    37	        montarTela();
-    38	        carregarExemplo(false);
-    39	        setSize(1000, 720);
-    40	        setLocationRelativeTo(null);
-    41	    }
-    42	
-    43	    private void montarTela() {
-    44	        saida.setEditable(false);
-    45	        saida.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
-    46	
-    47	        JScrollPane rolagem = new JScrollPane(saida);
-    48	        rolagem.setBorder(BorderFactory.createTitledBorder("Saída das operações"));
-    49	        rolagem.setPreferredSize(new Dimension(980, 210));
-    50	
-    51	        JPanel desenho = new JPanel(new BorderLayout());
-    52	        desenho.setBorder(BorderFactory.createTitledBorder("Grafo ativo"));
-    53	        desenho.add(painel, BorderLayout.CENTER);
-    54	
-    55	        status.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
+     2	import javax.swing.JFileChooser;
+     3	import javax.swing.JFrame;
+     4	import javax.swing.JLabel;
+     5	import javax.swing.JMenu;
+     6	import javax.swing.JMenuBar;
+     7	import javax.swing.JMenuItem;
+     8	import javax.swing.JOptionPane;
+     9	import javax.swing.JPanel;
+    10	import javax.swing.JScrollPane;
+    11	import javax.swing.JTextArea;
+    12	import java.awt.BorderLayout;
+    13	import java.awt.Color;
+    14	import java.awt.Dimension;
+    15	import java.awt.Font;
+    16	import java.awt.event.ActionListener;
+    17	import java.io.File;
+    18	import java.util.HashMap;
+    19	import java.util.HashSet;
+    20	import java.util.List;
+    21	import java.util.Map;
+    22	import java.util.Set;
+    23	
+    24	/**
+    25	 * Janela principal: menu com todas as operações, desenho do grafo ativo
+    26	 * e área de texto com o resultado de cada operação.
+    27	 */
+    28	public class TelaPrincipal extends JFrame {
+    29	
+    30	    private Grafo grafo = new Grafo(false);
+    31	    private final PainelGrafo painel = new PainelGrafo(grafo);
+    32	    private final JTextArea saida = new JTextArea();
+    33	    private final JLabel status = new JLabel();
+    34	
+    35	    public TelaPrincipal() {
+    36	        super("Teoria dos Grafos - Kauan Rocha Dalfovo e Gustavo Odilon");
+    37	        setDefaultCloseOperation(EXIT_ON_CLOSE);
+    38	        setJMenuBar(montarMenu());
+    39	        montarTela();
+    40	        carregarExemplo(false);
+    41	        setSize(1000, 720);
+    42	        setLocationRelativeTo(null);
+    43	    }
+    44	
+    45	    private void montarTela() {
+    46	        saida.setEditable(false);
+    47	        saida.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 13));
+    48	
+    49	        JScrollPane rolagem = new JScrollPane(saida);
+    50	        rolagem.setBorder(BorderFactory.createTitledBorder("Saída das operações"));
+    51	        rolagem.setPreferredSize(new Dimension(980, 210));
+    52	
+    53	        JPanel desenho = new JPanel(new BorderLayout());
+    54	        desenho.setBorder(BorderFactory.createTitledBorder("Grafo ativo"));
+    55	        desenho.add(painel, BorderLayout.CENTER);
     56	
-    57	        JPanel conteudo = new JPanel(new BorderLayout(8, 8));
-    58	        conteudo.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
-    59	        conteudo.add(desenho, BorderLayout.CENTER);
-    60	        conteudo.add(rolagem, BorderLayout.SOUTH);
-    61	        conteudo.add(status, BorderLayout.NORTH);
-    62	        setContentPane(conteudo);
-    63	    }
-    64	
-    65	    private JMenuBar montarMenu() {
-    66	        JMenuBar barra = new JMenuBar();
-    67	
-    68	        JMenu grafoMenu = new JMenu("Grafo");
-    69	        grafoMenu.add(item("Novo grafo não dirigido", e -> novo(false)));
-    70	        grafoMenu.add(item("Novo grafo dirigido", e -> novo(true)));
-    71	        grafoMenu.add(item("Carregar exemplo não dirigido", e -> carregarExemplo(false)));
-    72	        grafoMenu.add(item("Carregar exemplo dirigido", e -> carregarExemplo(true)));
-    73	        grafoMenu.add(item("Lista de adjacência", e -> imprimir(grafo.formatarGrafo())));
-    74	        grafoMenu.add(item("Sair", e -> dispose()));
-    75	
-    76	        JMenu op = new JMenu("Operações");
-    77	        op.add(item("Inserir vértice isolado", e -> inserirVertice()));
-    78	        op.add(item("Inserir aresta/arco", e -> inserirAresta()));
-    79	        op.add(item("Remover vértice", e -> removerVertice()));
-    80	        op.add(item("Remover aresta/arco", e -> removerAresta()));
-    81	        op.addSeparator();
-    82	        op.add(item("Verificar adjacência", e -> adjacencia()));
-    83	        op.add(item("Peso da aresta/arco", e -> peso()));
-    84	        op.add(item("Extremidades da aresta/arco", e -> extremidades()));
-    85	
-    86	        JMenu alg = new JMenu("Algoritmos");
-    87	        alg.add(item("Prim: árvore geradora mínima", e -> prim()));
-    88	        alg.add(item("Busca em profundidade guiada", e -> busca()));
-    89	        alg.add(item("Roy: componentes conexas", e -> roy()));
-    90	
-    91	        JMenu exibir = new JMenu("Exibição");
-    92	        exibir.add(item("Limpar destaques", e -> painel.limpar()));
-    93	        exibir.add(item("Limpar saída", e -> saida.setText("")));
-    94	
-    95	        barra.add(grafoMenu);
-    96	        barra.add(op);
-    97	        barra.add(alg);
-    98	        barra.add(exibir);
-    99	        return barra;
-   100	    }
-   101	
-   102	    private JMenuItem item(String texto, ActionListener acao) {
-   103	        JMenuItem mi = new JMenuItem(texto);
-   104	        mi.addActionListener(acao);
-   105	        return mi;
-   106	    }
-   107	
-   108	    // ============================================================
-   109	    // GRAFO
-   110	    // ============================================================
+    57	        status.setBorder(BorderFactory.createEmptyBorder(5, 8, 5, 8));
+    58	
+    59	        JPanel conteudo = new JPanel(new BorderLayout(8, 8));
+    60	        conteudo.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+    61	        conteudo.add(desenho, BorderLayout.CENTER);
+    62	        conteudo.add(rolagem, BorderLayout.SOUTH);
+    63	        conteudo.add(status, BorderLayout.NORTH);
+    64	        setContentPane(conteudo);
+    65	    }
+    66	
+    67	    private JMenuBar montarMenu() {
+    68	        JMenuBar barra = new JMenuBar();
+    69	
+    70	        JMenu grafoMenu = new JMenu("Grafo");
+    71	        grafoMenu.add(item("Novo grafo não dirigido", e -> novo(false)));
+    72	        grafoMenu.add(item("Novo grafo dirigido", e -> novo(true)));
+    73	        grafoMenu.add(item("Carregar exemplo não dirigido", e -> carregarExemplo(false)));
+    74	        grafoMenu.add(item("Carregar exemplo dirigido", e -> carregarExemplo(true)));
+    75	        grafoMenu.add(item("Carregar mapa do Paraná", e -> carregarMapaParana()));
+    76	        grafoMenu.addSeparator();
+    77	        grafoMenu.add(item("Carregar grafo de arquivo", e -> carregarDeArquivo()));
+    78	        grafoMenu.add(item("Salvar grafo em arquivo", e -> salvarEmArquivo()));
+    79	        grafoMenu.addSeparator();
+    80	        grafoMenu.add(item("Lista de adjacência", e -> imprimir(grafo.formatarGrafo())));
+    81	        grafoMenu.add(item("Sair", e -> dispose()));
+    82	
+    83	        JMenu op = new JMenu("Operações");
+    84	        op.add(item("Inserir vértice isolado", e -> inserirVertice()));
+    85	        op.add(item("Inserir aresta/arco", e -> inserirAresta()));
+    86	        op.add(item("Remover vértice", e -> removerVertice()));
+    87	        op.add(item("Remover aresta/arco", e -> removerAresta()));
+    88	        op.addSeparator();
+    89	        op.add(item("Verificar adjacência", e -> adjacencia()));
+    90	        op.add(item("Peso da aresta/arco", e -> peso()));
+    91	        op.add(item("Extremidades da aresta/arco", e -> extremidades()));
+    92	
+    93	        JMenu alg = new JMenu("Algoritmos");
+    94	        alg.add(item("Prim: árvore geradora mínima", e -> prim()));
+    95	        alg.add(item("Busca em profundidade guiada", e -> busca()));
+    96	        alg.add(item("Roy: componentes conexas", e -> roy()));
+    97	        alg.addSeparator();
+    98	        alg.add(item("DSATUR: coloração do grafo", e -> dsatur()));
+    99	        alg.add(item("A*: caminho mínimo", e -> aEstrela()));
+   100	
+   101	        JMenu exibir = new JMenu("Exibição");
+   102	        exibir.add(item("Limpar destaques", e -> painel.limpar()));
+   103	        exibir.add(item("Limpar saída", e -> saida.setText("")));
+   104	
+   105	        barra.add(grafoMenu);
+   106	        barra.add(op);
+   107	        barra.add(alg);
+   108	        barra.add(exibir);
+   109	        return barra;
+   110	    }
    111	
-   112	    private void novo(boolean dirigido) {
-   113	        grafo = new Grafo(dirigido);
-   114	        painel.mostrar(grafo);
-   115	        saida.setText("");
-   116	        imprimir("Novo grafo " + (dirigido ? "dirigido" : "não dirigido") + " criado.");
-   117	    }
-   118	
-   119	    private void carregarExemplo(boolean dirigido) {
-   120	        grafo = new Grafo(dirigido);
-   121	        for (String id : new String[]{"A", "B", "C", "D", "E", "F"}) {
-   122	            grafo.inserirVertice(id);
-   123	        }
-   124	        if (dirigido) {
-   125	            grafo.inserirAresta("r1", "A", "B", 3);
-   126	            grafo.inserirAresta("r2", "B", "C", 2);
-   127	            grafo.inserirAresta("r3", "C", "A", 4);
-   128	            grafo.inserirAresta("r4", "C", "D", 7);
-   129	            grafo.inserirAresta("r5", "D", "E", 1);
-   130	            grafo.inserirAresta("r6", "E", "D", 5);
-   131	            grafo.inserirAresta("r7", "E", "F", 6);
-   132	        } else {
-   133	            grafo.inserirAresta("a1", "A", "B", 4);
-   134	            grafo.inserirAresta("a2", "A", "C", 2);
-   135	            grafo.inserirAresta("a3", "B", "C", 1);
-   136	            grafo.inserirAresta("a4", "B", "D", 5);
-   137	            grafo.inserirAresta("a5", "C", "D", 8);
-   138	            grafo.inserirAresta("a6", "C", "E", 10);
-   139	            grafo.inserirAresta("a7", "D", "E", 2);
-   140	            grafo.inserirAresta("a8", "D", "F", 6);
-   141	            grafo.inserirAresta("a9", "E", "F", 3);
-   142	        }
-   143	        painel.mostrar(grafo);
-   144	        saida.setText("");
-   145	        imprimir(grafo.formatarGrafo());
-   146	    }
-   147	
-   148	    // ============================================================
-   149	    // OPERAÇÕES
-   150	    // ============================================================
-   151	
-   152	    private void inserirVertice() {
-   153	        String id = perguntar("Identificador do novo vértice:");
-   154	        if (id == null) {
-   155	            return;
-   156	        }
-   157	        try {
-   158	            grafo.inserirVertice(id);
-   159	            imprimir("Vértice inserido: " + id);
-   160	        } catch (RuntimeException ex) {
-   161	            erro(ex);
-   162	        }
-   163	    }
-   164	
-   165	    private void inserirAresta() {
-   166	        String id = perguntar("Identificador da aresta/arco:");
-   167	        if (id == null) {
-   168	            return;
-   169	        }
-   170	        String origem = perguntar(grafo.isDirigido() ? "Vértice de origem:" : "Primeiro vértice:");
-   171	        if (origem == null) {
-   172	            return;
-   173	        }
-   174	        String destino = perguntar(grafo.isDirigido() ? "Vértice de destino:" : "Segundo vértice:");
-   175	        if (destino == null) {
-   176	            return;
-   177	        }
-   178	        String texto = perguntar("Peso (custo):");
-   179	        if (texto == null) {
-   180	            return;
-   181	        }
-   182	        try {
-   183	            grafo.inserirAresta(id, origem, destino, Double.parseDouble(texto.replace(',', '.')));
-   184	            imprimir("Ligação inserida: " + grafo.buscarAresta(id));
-   185	        } catch (NumberFormatException ex) {
-   186	            erro(new IllegalArgumentException("Peso inválido: " + texto));
-   187	        } catch (RuntimeException ex) {
-   188	            erro(ex);
-   189	        }
-   190	    }
-   191	
-   192	    private void removerVertice() {
-   193	        String id = perguntar("Vértice a remover:");
-   194	        if (id == null) {
-   195	            return;
-   196	        }
-   197	        try {
-   198	            grafo.removerVertice(id);
-   199	            imprimir("Vértice removido: " + id + "\n" + grafo.formatarGrafo());
-   200	        } catch (RuntimeException ex) {
-   201	            erro(ex);
-   202	        }
-   203	    }
-   204	
-   205	    private void removerAresta() {
-   206	        String id = perguntar("Aresta/arco a remover:");
-   207	        if (id == null) {
-   208	            return;
-   209	        }
-   210	        try {
-   211	            grafo.removerAresta(id);
-   212	            imprimir("Ligação removida: " + id + "\n" + grafo.formatarGrafo());
-   213	        } catch (RuntimeException ex) {
-   214	            erro(ex);
-   215	        }
-   216	    }
-   217	
-   218	    private void adjacencia() {
-   219	        String v = perguntar("Primeiro vértice (v):");
-   220	        if (v == null) {
-   221	            return;
-   222	        }
-   223	        String w = perguntar("Segundo vértice (w):");
-   224	        if (w == null) {
-   225	            return;
-   226	        }
-   227	        imprimir(v + " e " + w + " são adjacentes? " + (grafo.saoAdjacentes(v, w) ? "SIM" : "NÃO"));
-   228	    }
+   112	    private JMenuItem item(String texto, ActionListener acao) {
+   113	        JMenuItem mi = new JMenuItem(texto);
+   114	        mi.addActionListener(acao);
+   115	        return mi;
+   116	    }
+   117	
+   118	    // ============================================================
+   119	    // GRAFO
+   120	    // ============================================================
+   121	
+   122	    private void novo(boolean dirigido) {
+   123	        grafo = new Grafo(dirigido);
+   124	        painel.mostrar(grafo);
+   125	        saida.setText("");
+   126	        imprimir("Novo grafo " + (dirigido ? "dirigido" : "não dirigido") + " criado.");
+   127	    }
+   128	
+   129	    private void carregarExemplo(boolean dirigido) {
+   130	        grafo = new Grafo(dirigido);
+   131	        for (String id : new String[]{"A", "B", "C", "D", "E", "F"}) {
+   132	            grafo.inserirVertice(id);
+   133	        }
+   134	        if (dirigido) {
+   135	            grafo.inserirAresta("r1", "A", "B", 3);
+   136	            grafo.inserirAresta("r2", "B", "C", 2);
+   137	            grafo.inserirAresta("r3", "C", "A", 4);
+   138	            grafo.inserirAresta("r4", "C", "D", 7);
+   139	            grafo.inserirAresta("r5", "D", "E", 1);
+   140	            grafo.inserirAresta("r6", "E", "D", 5);
+   141	            grafo.inserirAresta("r7", "E", "F", 6);
+   142	        } else {
+   143	            grafo.inserirAresta("a1", "A", "B", 4);
+   144	            grafo.inserirAresta("a2", "A", "C", 2);
+   145	            grafo.inserirAresta("a3", "B", "C", 1);
+   146	            grafo.inserirAresta("a4", "B", "D", 5);
+   147	            grafo.inserirAresta("a5", "C", "D", 8);
+   148	            grafo.inserirAresta("a6", "C", "E", 10);
+   149	            grafo.inserirAresta("a7", "D", "E", 2);
+   150	            grafo.inserirAresta("a8", "D", "F", 6);
+   151	            grafo.inserirAresta("a9", "E", "F", 3);
+   152	        }
+   153	        painel.mostrar(grafo);
+   154	        saida.setText("");
+   155	        imprimir(grafo.formatarGrafo());
+   156	    }
+   157	
+   158	    /**
+   159	     Mapa rodoviário do Paraná usado para testar o A*. Os pesos das arestas
+   160	     são a distância por estrada, em quilômetros. As coordenadas geográficas
+   161	     ficam nos vértices e alimentam a heurística de Haversine.
+   162	     */
+   163	    private void carregarMapaParana() {
+   164	        grafo = new Grafo(false);
+   165	
+   166	        // Coordenadas geográficas das sedes municipais, conforme o IBGE.
+   167	        grafo.inserirVertice("Curitiba", -25.4133, -49.2679);
+   168	        grafo.inserirVertice("Paranaguá", -25.5189, -48.5091);
+   169	        grafo.inserirVertice("Ponta Grossa", -25.0964, -50.1722);
+   170	        grafo.inserirVertice("São Mateus do Sul", -25.8732, -50.3855);
+   171	        grafo.inserirVertice("Guarapuava", -25.3863, -51.4699);
+   172	        grafo.inserirVertice("Londrina", -23.3355, -51.1506);
+   173	        grafo.inserirVertice("Maringá", -23.4240, -51.9395);
+   174	        grafo.inserirVertice("Umuarama", -23.7595, -53.3118);
+   175	        grafo.inserirVertice("Toledo", -24.7227, -53.7403);
+   176	        grafo.inserirVertice("Cascavel", -24.9530, -53.4796);
+   177	        grafo.inserirVertice("Foz do Iguaçu", -25.5468, -54.5884);
+   178	        grafo.inserirVertice("Francisco Beltrão", -26.0802, -53.0554);
+   179	
+   180	        grafo.inserirAresta("e1", "Umuarama", "Maringá", 190);
+   181	        grafo.inserirAresta("e2", "Umuarama", "Toledo", 126);
+   182	        grafo.inserirAresta("e3", "Maringá", "Londrina", 114);
+   183	        grafo.inserirAresta("e4", "Maringá", "Ponta Grossa", 314);
+   184	        grafo.inserirAresta("e5", "Londrina", "Ponta Grossa", 273);
+   185	        grafo.inserirAresta("e6", "Toledo", "Cascavel", 50);
+   186	        grafo.inserirAresta("e7", "Cascavel", "Foz do Iguaçu", 143);
+   187	        grafo.inserirAresta("e8", "Cascavel", "Francisco Beltrão", 186);
+   188	        grafo.inserirAresta("e9", "Cascavel", "Guarapuava", 250);
+   189	        grafo.inserirAresta("e10", "Guarapuava", "Ponta Grossa", 165);
+   190	        grafo.inserirAresta("e11", "Francisco Beltrão", "São Mateus do Sul", 354);
+   191	        grafo.inserirAresta("e12", "São Mateus do Sul", "Curitiba", 157);
+   192	        grafo.inserirAresta("e13", "Ponta Grossa", "Curitiba", 114);
+   193	        grafo.inserirAresta("e14", "Curitiba", "Paranaguá", 90);
+   194	
+   195	        painel.mostrar(grafo);
+   196	        saida.setText("");
+   197	        imprimir("Mapa do Paraná carregado: 12 cidades e 14 estradas.\n"
+   198	                + "Pesos em quilômetros por estrada. Coordenadas geográficas nos vértices.");
+   199	        imprimir(grafo.formatarGrafo());
+   200	    }
+   201	
+   202	    private void carregarDeArquivo() {
+   203	        JFileChooser seletor = new JFileChooser(new File("."));
+   204	        seletor.setDialogTitle("Carregar grafo de arquivo");
+   205	
+   206	        if (seletor.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+   207	            return;
+   208	        }
+   209	
+   210	        File arquivo = seletor.getSelectedFile();
+   211	        try {
+   212	            grafo = ArquivoGrafo.carregar(arquivo);
+   213	            painel.mostrar(grafo);
+   214	            saida.setText("");
+   215	            imprimir("Grafo carregado de " + arquivo.getName() + ".");
+   216	            imprimir(grafo.formatarGrafo());
+   217	        } catch (Exception ex) {
+   218	            JOptionPane.showMessageDialog(this, ex.getMessage(),
+   219	                    "Erro ao carregar o arquivo", JOptionPane.ERROR_MESSAGE);
+   220	        }
+   221	    }
+   222	
+   223	    private void salvarEmArquivo() {
+   224	        if (grafo.getVertices().isEmpty()) {
+   225	            JOptionPane.showMessageDialog(this, "O grafo não possui vértices.",
+   226	                    "Aviso", JOptionPane.WARNING_MESSAGE);
+   227	            return;
+   228	        }
    229	
-   230	    private void peso() {
-   231	        String id = perguntar("Identificador da aresta/arco:");
-   232	        if (id == null) {
-   233	            return;
-   234	        }
-   235	        try {
-   236	            imprimir("Peso de " + id + ": " + Aresta.formatarPeso(grafo.retornarValorAresta(id)));
-   237	        } catch (RuntimeException ex) {
-   238	            erro(ex);
-   239	        }
-   240	    }
-   241	
-   242	    private void extremidades() {
-   243	        String id = perguntar("Identificador da aresta/arco:");
-   244	        if (id == null) {
-   245	            return;
-   246	        }
-   247	        try {
-   248	            imprimir(grafo.formatarExtremidades(id));
-   249	        } catch (RuntimeException ex) {
-   250	            erro(ex);
-   251	        }
-   252	    }
-   253	
-   254	    // ============================================================
-   255	    // ALGORITMOS
-   256	    // ============================================================
-   257	
-   258	    private void prim() {
-   259	        String inicial = perguntar("Vértice inicial do Prim:");
-   260	        if (inicial == null) {
-   261	            return;
+   230	        JFileChooser seletor = new JFileChooser(new File("."));
+   231	        seletor.setDialogTitle("Salvar grafo em arquivo");
+   232	        seletor.setSelectedFile(new File("grafo.txt"));
+   233	
+   234	        if (seletor.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+   235	            return;
+   236	        }
+   237	
+   238	        File arquivo = seletor.getSelectedFile();
+   239	        try {
+   240	            ArquivoGrafo.salvar(grafo, arquivo);
+   241	            imprimir("Grafo gravado em " + arquivo.getName() + ".");
+   242	        } catch (Exception ex) {
+   243	            JOptionPane.showMessageDialog(this, ex.getMessage(),
+   244	                    "Erro ao gravar o arquivo", JOptionPane.ERROR_MESSAGE);
+   245	        }
+   246	    }
+   247	
+   248	    // ============================================================
+   249	    // OPERAÇÕES
+   250	    // ============================================================
+   251	
+   252	    private void inserirVertice() {
+   253	        String id = perguntar("Identificador do novo vértice:");
+   254	        if (id == null) {
+   255	            return;
+   256	        }
+   257	        try {
+   258	            grafo.inserirVertice(id);
+   259	            imprimir("Vértice inserido: " + id);
+   260	        } catch (RuntimeException ex) {
+   261	            erro(ex);
    262	        }
-   263	        try {
-   264	            Grafo.ResultadoAGM agm = grafo.prim(inicial);
-   265	
-   266	            String texto = "===== PRIM: ÁRVORE GERADORA MÍNIMA =====\n";
-   267	            texto += "Vértice inicial: " + agm.getInicial().getId() + "\n";
-   268	            for (Aresta a : agm.getArestas()) {
-   269	                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
-   270	                        + " -- " + a.getDestino().getId()
-   271	                        + "  peso " + a.getPesoFormatado() + "\n";
-   272	            }
-   273	            texto += "Arestas: " + agm.getArestas().size()
-   274	                    + "   CUSTO TOTAL: " + Aresta.formatarPeso(agm.getCusto());
-   275	            if (agm.isFloresta()) {
-   276	                texto += "\nGrafo desconexo: floresta com " + agm.getComponentes() + " árvores.";
-   277	            }
-   278	            imprimir(texto);
-   279	
-   280	            painel.realcar(agm.getArestas(), idsDe(agm.getArestas()), null);
-   281	        } catch (RuntimeException ex) {
-   282	            erro(ex);
-   283	        }
-   284	    }
-   285	
-   286	    private void busca() {
-   287	        String origem = perguntar("Vértice de saída:");
-   288	        if (origem == null) {
-   289	            return;
-   290	        }
-   291	        String destino = perguntar("Vértice de chegada:");
-   292	        if (destino == null) {
-   293	            return;
-   294	        }
-   295	        try {
-   296	            Grafo.ResultadoBusca b = grafo.buscaEmProfundidade(origem, destino);
-   297	
-   298	            String texto = "===== BUSCA EM PROFUNDIDADE GUIADA =====\n";
-   299	            texto += "Saída: " + b.getOrigem().getId()
-   300	                    + "   Chegada: " + b.getDestino().getId() + "\n";
-   301	            texto += "Ordem de visita: " + b.getOrdemVisita() + "\n";
-   302	            texto += "Arestas da árvore:\n";
-   303	            for (Aresta a : b.getArestasArvore()) {
-   304	                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
-   305	                        + (grafo.isDirigido() ? " -> " : " -- ") + a.getDestino().getId()
-   306	                        + "  peso " + a.getPesoFormatado() + "\n";
-   307	            }
-   308	            if (b.isEncontrou()) {
-   309	                texto += "Caminho: " + b.getCaminhoVertices()
-   310	                        + "   custo " + Aresta.formatarPeso(b.getCustoCaminho());
-   311	            } else {
-   312	                texto += b.getDestino().getId() + " não é alcançável a partir de "
-   313	                        + b.getOrigem().getId() + ".";
-   314	            }
-   315	            imprimir(texto);
-   316	
-   317	            Map<String, Color> cores = new HashMap<>();
-   318	            cores.put(b.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
-   319	            cores.put(b.getDestino().getId(), new Color(0xF5, 0xB4, 0xA8));
-   320	            painel.realcar(b.getArestasArvore(), idsDe(b.getCaminhoArestas()), cores);
-   321	        } catch (RuntimeException ex) {
-   322	            erro(ex);
-   323	        }
-   324	    }
-   325	
-   326	    private void roy() {
-   327	        List<List<Vertice>> componentes = grafo.royComponentes();
-   328	
-   329	        String texto = "===== ROY: COMPONENTES "
-   330	                + (grafo.isDirigido() ? "FORTEMENTE CONEXAS" : "CONEXAS") + " =====\n";
-   331	
-   332	        Map<String, Color> cores = new HashMap<>();
-   333	        for (int i = 0; i < componentes.size(); i++) {
-   334	            texto += "C" + (i + 1) + " = " + componentes.get(i) + "\n";
-   335	            for (Vertice v : componentes.get(i)) {
-   336	                cores.put(v.getId(), PainelGrafo.PALETA[i % PainelGrafo.PALETA.length]);
-   337	            }
-   338	        }
-   339	        texto += "Total de componentes: " + componentes.size();
-   340	        imprimir(texto);
+   263	    }
+   264	
+   265	    private void inserirAresta() {
+   266	        String id = perguntar("Identificador da aresta/arco:");
+   267	        if (id == null) {
+   268	            return;
+   269	        }
+   270	        String origem = perguntar(grafo.isDirigido() ? "Vértice de origem:" : "Primeiro vértice:");
+   271	        if (origem == null) {
+   272	            return;
+   273	        }
+   274	        String destino = perguntar(grafo.isDirigido() ? "Vértice de destino:" : "Segundo vértice:");
+   275	        if (destino == null) {
+   276	            return;
+   277	        }
+   278	        String texto = perguntar("Peso (custo):");
+   279	        if (texto == null) {
+   280	            return;
+   281	        }
+   282	        try {
+   283	            grafo.inserirAresta(id, origem, destino, Double.parseDouble(texto.replace(',', '.')));
+   284	            imprimir("Ligação inserida: " + grafo.buscarAresta(id));
+   285	        } catch (NumberFormatException ex) {
+   286	            erro(new IllegalArgumentException("Peso inválido: " + texto));
+   287	        } catch (RuntimeException ex) {
+   288	            erro(ex);
+   289	        }
+   290	    }
+   291	
+   292	    private void removerVertice() {
+   293	        String id = perguntar("Vértice a remover:");
+   294	        if (id == null) {
+   295	            return;
+   296	        }
+   297	        try {
+   298	            grafo.removerVertice(id);
+   299	            imprimir("Vértice removido: " + id + "\n" + grafo.formatarGrafo());
+   300	        } catch (RuntimeException ex) {
+   301	            erro(ex);
+   302	        }
+   303	    }
+   304	
+   305	    private void removerAresta() {
+   306	        String id = perguntar("Aresta/arco a remover:");
+   307	        if (id == null) {
+   308	            return;
+   309	        }
+   310	        try {
+   311	            grafo.removerAresta(id);
+   312	            imprimir("Ligação removida: " + id + "\n" + grafo.formatarGrafo());
+   313	        } catch (RuntimeException ex) {
+   314	            erro(ex);
+   315	        }
+   316	    }
+   317	
+   318	    private void adjacencia() {
+   319	        String v = perguntar("Primeiro vértice (v):");
+   320	        if (v == null) {
+   321	            return;
+   322	        }
+   323	        String w = perguntar("Segundo vértice (w):");
+   324	        if (w == null) {
+   325	            return;
+   326	        }
+   327	        imprimir(v + " e " + w + " são adjacentes? " + (grafo.saoAdjacentes(v, w) ? "SIM" : "NÃO"));
+   328	    }
+   329	
+   330	    private void peso() {
+   331	        String id = perguntar("Identificador da aresta/arco:");
+   332	        if (id == null) {
+   333	            return;
+   334	        }
+   335	        try {
+   336	            imprimir("Peso de " + id + ": " + Aresta.formatarPeso(grafo.retornarValorAresta(id)));
+   337	        } catch (RuntimeException ex) {
+   338	            erro(ex);
+   339	        }
+   340	    }
    341	
-   342	        painel.realcar(null, null, cores);
-   343	    }
-   344	
-   345	    // ============================================================
-   346	    // APOIO
-   347	    // ============================================================
-   348	
-   349	    private Set<String> idsDe(List<Aresta> arestas) {
-   350	        Set<String> ids = new HashSet<>();
-   351	        for (Aresta a : arestas) {
-   352	            ids.add(a.getId());
-   353	        }
-   354	        return ids;
-   355	    }
-   356	
-   357	    private String perguntar(String mensagem) {
-   358	        String texto = JOptionPane.showInputDialog(this, mensagem);
-   359	        return (texto == null || texto.trim().isEmpty()) ? null : texto.trim();
-   360	    }
-   361	
-   362	    private void imprimir(String texto) {
-   363	        saida.append(texto + "\n\n");
-   364	        saida.setCaretPosition(saida.getDocument().getLength());
-   365	        status.setText("Tipo: " + (grafo.isDirigido() ? "dirigido" : "não dirigido")
-   366	                + "     Vértices: " + grafo.getVertices().size()
-   367	                + "     Ligações: " + grafo.getArestas().size()
-   368	                + "     Representação: lista de adjacência");
-   369	        painel.repaint();
-   370	    }
-   371	
-   372	    private void erro(RuntimeException ex) {
-   373	        JOptionPane.showMessageDialog(this, ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
-   374	    }
-   375	}
+   342	    private void extremidades() {
+   343	        String id = perguntar("Identificador da aresta/arco:");
+   344	        if (id == null) {
+   345	            return;
+   346	        }
+   347	        try {
+   348	            imprimir(grafo.formatarExtremidades(id));
+   349	        } catch (RuntimeException ex) {
+   350	            erro(ex);
+   351	        }
+   352	    }
+   353	
+   354	    // ============================================================
+   355	    // ALGORITMOS
+   356	    // ============================================================
+   357	
+   358	    private void prim() {
+   359	        try {
+   360	            // Não há vértice a escolher: a árvore geradora mínima é propriedade
+   361	            // do grafo e o custo total não depende de onde a construção começa.
+   362	            Grafo.ResultadoAGM agm = grafo.prim();
+   363	
+   364	            String texto = "===== PRIM: ÁRVORE GERADORA MÍNIMA =====\n";
+   365	            for (Aresta a : agm.getArestas()) {
+   366	                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+   367	                        + " -- " + a.getDestino().getId()
+   368	                        + "  peso " + a.getPesoFormatado() + "\n";
+   369	            }
+   370	            texto += "Arestas: " + agm.getArestas().size()
+   371	                    + "   CUSTO TOTAL: " + Aresta.formatarPeso(agm.getCusto());
+   372	            if (agm.isFloresta()) {
+   373	                texto += "\nGrafo desconexo: floresta com " + agm.getComponentes() + " árvores.";
+   374	            }
+   375	            imprimir(texto);
+   376	
+   377	            painel.realcar(agm.getArestas(), idsDe(agm.getArestas()), null);
+   378	        } catch (RuntimeException ex) {
+   379	            erro(ex);
+   380	        }
+   381	    }
+   382	
+   383	    private void busca() {
+   384	        String origem = perguntar("Vértice de saída:");
+   385	        if (origem == null) {
+   386	            return;
+   387	        }
+   388	        String destino = perguntar("Vértice de chegada:");
+   389	        if (destino == null) {
+   390	            return;
+   391	        }
+   392	        try {
+   393	            Grafo.ResultadoBusca b = grafo.buscaEmProfundidade(origem, destino);
+   394	
+   395	            String texto = "===== BUSCA EM PROFUNDIDADE GUIADA =====\n";
+   396	            texto += "Saída: " + b.getOrigem().getId()
+   397	                    + "   Chegada: " + b.getDestino().getId() + "\n";
+   398	            texto += "Ordem de visita: " + b.getOrdemVisita() + "\n";
+   399	            texto += "Arestas da árvore:\n";
+   400	            for (Aresta a : b.getArestasArvore()) {
+   401	                texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+   402	                        + (grafo.isDirigido() ? " -> " : " -- ") + a.getDestino().getId()
+   403	                        + "  peso " + a.getPesoFormatado() + "\n";
+   404	            }
+   405	            if (b.isEncontrou()) {
+   406	                texto += "Caminho: " + b.getCaminhoVertices()
+   407	                        + "   custo " + Aresta.formatarPeso(b.getCustoCaminho());
+   408	            } else {
+   409	                texto += b.getDestino().getId() + " não é alcançável a partir de "
+   410	                        + b.getOrigem().getId() + ".";
+   411	            }
+   412	            imprimir(texto);
+   413	
+   414	            Map<String, Color> cores = new HashMap<>();
+   415	            cores.put(b.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
+   416	            cores.put(b.getDestino().getId(), new Color(0xF5, 0xB4, 0xA8));
+   417	            painel.realcar(b.getArestasArvore(), idsDe(b.getCaminhoArestas()), cores);
+   418	        } catch (RuntimeException ex) {
+   419	            erro(ex);
+   420	        }
+   421	    }
+   422	
+   423	    private void dsatur() {
+   424	        try {
+   425	            Grafo.ResultadoColoracao r = grafo.dsatur();
+   426	
+   427	            String texto = "===== DSATUR: COLORAÇÃO DO GRAFO =====\n";
+   428	            texto += "Cores utilizadas: " + r.getTotalCores() + "\n\n";
+   429	
+   430	            for (Vertice v : grafo.getVertices()) {
+   431	                texto += String.format("  %-20s cor %d%n", v.getId(), r.getCores().get(v));
+   432	            }
+   433	
+   434	            texto += "\nColoração própria, nenhuma aresta com as duas pontas da mesma cor: "
+   435	                    + (grafo.coloracaoValida(r.getCores()) ? "SIM" : "NÃO");
+   436	            imprimir(texto);
+   437	
+   438	            Map<String, Color> cores = new HashMap<>();
+   439	            for (Map.Entry<Vertice, Integer> e : r.getCores().entrySet()) {
+   440	                cores.put(e.getKey().getId(), PainelGrafo.corDaClasse(e.getValue()));
+   441	            }
+   442	            painel.realcar(null, null, cores);
+   443	        } catch (RuntimeException ex) {
+   444	            erro(ex);
+   445	        }
+   446	    }
+   447	
+   448	    private void aEstrela() {
+   449	        String origem = perguntar("Cidade de origem:");
+   450	        if (origem == null) {
+   451	            return;
+   452	        }
+   453	        String destino = perguntar("Cidade de destino:");
+   454	        if (destino == null) {
+   455	            return;
+   456	        }
+   457	        try {
+   458	            Grafo.ResultadoCaminho r = grafo.aEstrela(origem, destino);
+   459	
+   460	            String texto = "===== A*: CAMINHO MÍNIMO =====\n";
+   461	            texto += "Origem: " + r.getOrigem().getId()
+   462	                    + "   Destino: " + r.getDestino().getId() + "\n\n";
+   463	
+   464	            // O enunciado exige a tabela h(n) na tela, montada em relação ao
+   465	            // destino escolhido e calculada pela fórmula de Haversine.
+   466	            texto += "h(n) em linha reta até " + r.getDestino().getId()
+   467	                    + ", pela fórmula de Haversine:\n";
+   468	            for (Map.Entry<Vertice, Double> e : grafo.heuristicas(destino).entrySet()) {
+   469	                texto += String.format("  %-20s %8.1f km%n", e.getKey().getId(), e.getValue());
+   470	            }
+   471	
+   472	            texto += "\nOrdem de expansão: " + r.getOrdemExpansao() + "\n";
+   473	
+   474	            if (r.isEncontrou()) {
+   475	                texto += "CAMINHO: " + r.getCaminhoVertices() + "\n";
+   476	                texto += "Arestas percorridas:\n";
+   477	                for (Aresta a : r.getCaminhoArestas()) {
+   478	                    texto += "  " + a.getId() + ": " + a.getOrigem().getId()
+   479	                            + (grafo.isDirigido() ? " -> " : " -- ") + a.getDestino().getId()
+   480	                            + "  " + a.getPesoFormatado() + " km\n";
+   481	                }
+   482	                texto += "CUSTO TOTAL: " + Aresta.formatarPeso(r.getCustoTotal()) + " km";
+   483	            } else {
+   484	                texto += r.getDestino().getId() + " não é alcançável a partir de "
+   485	                        + r.getOrigem().getId() + ".";
+   486	            }
+   487	            imprimir(texto);
+   488	
+   489	            Map<String, Color> cores = new HashMap<>();
+   490	            cores.put(r.getOrigem().getId(), new Color(0xA8, 0xE0, 0xB0));
+   491	            cores.put(r.getDestino().getId(), new Color(0xF5, 0xB4, 0xA8));
+   492	            painel.realcar(null, idsDe(r.getCaminhoArestas()), cores);
+   493	        } catch (RuntimeException ex) {
+   494	            erro(ex);
+   495	        }
+   496	    }
+   497	
+   498	    private void roy() {
+   499	        List<List<Vertice>> componentes = grafo.royComponentes();
+   500	
+   501	        String texto = "===== ROY: COMPONENTES "
+   502	                + (grafo.isDirigido() ? "FORTEMENTE CONEXAS" : "CONEXAS") + " =====\n";
+   503	
+   504	        Map<String, Color> cores = new HashMap<>();
+   505	        for (int i = 0; i < componentes.size(); i++) {
+   506	            texto += "C" + (i + 1) + " = " + componentes.get(i) + "\n";
+   507	            for (Vertice v : componentes.get(i)) {
+   508	                cores.put(v.getId(), PainelGrafo.PALETA[i % PainelGrafo.PALETA.length]);
+   509	            }
+   510	        }
+   511	        texto += "Total de componentes: " + componentes.size();
+   512	        imprimir(texto);
+   513	
+   514	        painel.realcar(null, null, cores);
+   515	    }
+   516	
+   517	    // ============================================================
+   518	    // APOIO
+   519	    // ============================================================
+   520	
+   521	    private Set<String> idsDe(List<Aresta> arestas) {
+   522	        Set<String> ids = new HashSet<>();
+   523	        for (Aresta a : arestas) {
+   524	            ids.add(a.getId());
+   525	        }
+   526	        return ids;
+   527	    }
+   528	
+   529	    private String perguntar(String mensagem) {
+   530	        String texto = JOptionPane.showInputDialog(this, mensagem);
+   531	        return (texto == null || texto.trim().isEmpty()) ? null : texto.trim();
+   532	    }
+   533	
+   534	    private void imprimir(String texto) {
+   535	        saida.append(texto + "\n\n");
+   536	        saida.setCaretPosition(saida.getDocument().getLength());
+   537	        status.setText("Tipo: " + (grafo.isDirigido() ? "dirigido" : "não dirigido")
+   538	                + "     Vértices: " + grafo.getVertices().size()
+   539	                + "     Ligações: " + grafo.getArestas().size()
+   540	                + "     Representação: lista de adjacência");
+   541	        painel.repaint();
+   542	    }
+   543	
+   544	    private void erro(RuntimeException ex) {
+   545	        JOptionPane.showMessageDialog(this, ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+   546	    }
+   547	}
 
 
 ================================================================
@@ -1341,3 +2080,94 @@ Codigo fonte completo - 21/09/2026
     20	    }
     21	}
 
+
+================================================================
+  ARQUIVOS DE EXEMPLO DE GRAFO
+================================================================
+
+--- exemplos/coloracao-completo.txt ---
+
+# Grafo completo K5: todos ligados a todos.
+# Cada vertice e vizinho de todos os outros, entao sao necessarias
+# exatamente 5 cores. Caso extremo para o DSATUR.
+NAO_DIRIGIDO
+
+V;v1
+V;v2
+V;v3
+V;v4
+V;v5
+
+A;k1;v1;v2;1
+A;k2;v1;v3;1
+A;k3;v1;v4;1
+A;k4;v1;v5;1
+A;k5;v2;v3;1
+A;k6;v2;v4;1
+A;k7;v2;v5;1
+A;k8;v3;v4;1
+A;k9;v3;v5;1
+A;k10;v4;v5;1
+
+--- exemplos/coloracao-roda.txt ---
+
+# Roda W5: um ciclo de 5 vertices mais um centro ligado a todos eles.
+# O ciclo impar exige 3 cores e o centro exige mais uma, entao o
+# numero cromatico e 4. Serve para conferir o DSATUR.
+NAO_DIRIGIDO
+
+V;Centro
+V;R1
+V;R2
+V;R3
+V;R4
+V;R5
+
+A;c1;Centro;R1;1
+A;c2;Centro;R2;1
+A;c3;Centro;R3;1
+A;c4;Centro;R4;1
+A;c5;Centro;R5;1
+A;a1;R1;R2;1
+A;a2;R2;R3;1
+A;a3;R3;R4;1
+A;a4;R4;R5;1
+A;a5;R5;R1;1
+
+--- exemplos/mapa-parana.txt ---
+
+# Mapa rodoviario do Parana, usado para testar o algoritmo A*.
+# Pesos das arestas: distancia por estrada, em quilometros.
+# Coordenadas dos vertices: latitude e longitude das sedes municipais,
+# conforme o IBGE, Estrutura Territorial, Localidades:
+# https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/27385-localidades.html
+# As coordenadas alimentam a formula de Haversine, que calcula h(n).
+NAO_DIRIGIDO
+
+V;Curitiba;-25.4133;-49.2679
+V;Paranagua;-25.5189;-48.5091
+V;Ponta Grossa;-25.0964;-50.1722
+V;Sao Mateus do Sul;-25.8732;-50.3855
+V;Guarapuava;-25.3863;-51.4699
+V;Londrina;-23.3355;-51.1506
+V;Maringa;-23.4240;-51.9395
+V;Umuarama;-23.7595;-53.3118
+V;Toledo;-24.7227;-53.7403
+V;Cascavel;-24.9530;-53.4796
+V;Foz do Iguacu;-25.5468;-54.5884
+V;Francisco Beltrao;-26.0802;-53.0554
+
+A;e1;Umuarama;Maringa;190
+A;e2;Umuarama;Toledo;126
+A;e3;Maringa;Londrina;114
+A;e4;Maringa;Ponta Grossa;314
+A;e5;Londrina;Ponta Grossa;273
+A;e6;Toledo;Cascavel;50
+A;e7;Cascavel;Foz do Iguacu;143
+A;e8;Cascavel;Francisco Beltrao;186
+A;e9;Cascavel;Guarapuava;250
+A;e10;Guarapuava;Ponta Grossa;165
+A;e11;Francisco Beltrao;Sao Mateus do Sul;354
+A;e12;Sao Mateus do Sul;Curitiba;157
+A;e13;Ponta Grossa;Curitiba;114
+A;e14;Curitiba;Paranagua;90

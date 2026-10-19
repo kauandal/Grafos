@@ -1,0 +1,22 @@
+# Roda W5: um ciclo de 5 vertices mais um centro ligado a todos eles.
+# O ciclo impar exige 3 cores e o centro exige mais uma, entao o
+# numero cromatico e 4. Serve para conferir o DSATUR.
+NAO_DIRIGIDO
+
+V;Centro
+V;R1
+V;R2
+V;R3
+V;R4
+V;R5
+
+A;c1;Centro;R1;1
+A;c2;Centro;R2;1
+A;c3;Centro;R3;1
+A;c4;Centro;R4;1
+A;c5;Centro;R5;1
+A;a1;R1;R2;1
+A;a2;R2;R3;1
+A;a3;R3;R4;1
+A;a4;R4;R5;1
+A;a5;R5;R1;1

@@ -1,0 +1,35 @@
+# Mapa rodoviario do Parana, usado para testar o algoritmo A*.
+# Pesos das arestas: distancia por estrada, em quilometros.
+# Coordenadas dos vertices: latitude e longitude das sedes municipais,
+# conforme o IBGE, Estrutura Territorial, Localidades:
+# https://www.ibge.gov.br/geociencias/organizacao-do-territorio/estrutura-territorial/27385-localidades.html
+# As coordenadas alimentam a formula de Haversine, que calcula h(n).
+NAO_DIRIGIDO
+
+V;Curitiba;-25.4133;-49.2679
+V;Paranagua;-25.5189;-48.5091
+V;Ponta Grossa;-25.0964;-50.1722
+V;Sao Mateus do Sul;-25.8732;-50.3855
+V;Guarapuava;-25.3863;-51.4699
+V;Londrina;-23.3355;-51.1506
+V;Maringa;-23.4240;-51.9395
+V;Umuarama;-23.7595;-53.3118
+V;Toledo;-24.7227;-53.7403
+V;Cascavel;-24.9530;-53.4796
+V;Foz do Iguacu;-25.5468;-54.5884
+V;Francisco Beltrao;-26.0802;-53.0554
+
+A;e1;Umuarama;Maringa;190
+A;e2;Umuarama;Toledo;126
+A;e3;Maringa;Londrina;114
+A;e4;Maringa;Ponta Grossa;314
+A;e5;Londrina;Ponta Grossa;273
+A;e6;Toledo;Cascavel;50
+A;e7;Cascavel;Foz do Iguacu;143
+A;e8;Cascavel;Francisco Beltrao;186
+A;e9;Cascavel;Guarapuava;250
+A;e10;Guarapuava;Ponta Grossa;165
+A;e11;Francisco Beltrao;Sao Mateus do Sul;354
+A;e12;Sao Mateus do Sul;Curitiba;157
+A;e13;Ponta Grossa;Curitiba;114
+A;e14;Curitiba;Paranagua;90
